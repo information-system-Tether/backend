@@ -1,0 +1,3 @@
+include:
+  - ./db/docker-compose.yml
+  - ./pg/docker-compose.yml 
