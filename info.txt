@@ -1,0 +1,21 @@
+Подключение к pg:
+http://localhost:8080/
+adm@mail.ru
+P@ssw0rd
+
+Подключение к бд в pg:
+Host: db
+Port: 5432
+Database: tether
+Username: tether
+Password: P@ssw0rd
+
+Авторизация:
+http://localhost:8001/docs
+
+"login": "mansa",
+"password": "P@ssw0rd",
+eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIyIiwiZXhwIjoxNzkwMzU3MDAxfQ.j8vWmftdgYbCae0WLvD7GZsS-1O_gIlidToAr_-m5UU
+
+Дневник:
+http://localhost:8002/docs
