@@ -1,3 +1,2 @@
 include:
   - ./auth/docker-compose.yml
-  - ./diary/docker-compose.yml
