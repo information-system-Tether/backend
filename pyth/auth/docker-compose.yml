@@ -1,0 +1,13 @@
+services:
+  auth:
+    build:
+      context: ..
+      dockerfile: auth/Dockerfile
+    container_name: tether-auth
+    restart: always
+    environment:
+      DATABASE_URL: "postgresql+psycopg://${POSTGRES_USER:-tether}:${POSTGRES_PASSWORD:-P%40ssw0rd}@db:5432/${POSTGRES_DB:-tether}"
+      JWT_SECRET_KEY: "${JWT_SECRET_KEY:-whoarewewhoarewe?moscowpolykek}"
+      JWT_ACCESS_TOKEN_EXPIRE_MINUTES: ${JWT_ACCESS_TOKEN_EXPIRE_MINUTES:-60}
+    ports:
+      - "8001:8000"

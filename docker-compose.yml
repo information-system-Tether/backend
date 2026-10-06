@@ -1,0 +1,4 @@
+include:
+  - ./db/docker-compose.yml   ## база данных
+  - ./pyth/docker-compose.yml ## бизнес-логика
+  - ./pg/docker-compose.yml   ## gui для бд (необязательна)

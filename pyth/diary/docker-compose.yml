@@ -1,0 +1,12 @@
+services:
+  diary:
+    build:
+      context: ..
+      dockerfile: diary/Dockerfile
+    container_name: tether-diary
+    restart: always
+    environment:
+      DATABASE_URL: "postgresql+psycopg://${POSTGRES_USER:-tether}:${POSTGRES_PASSWORD:-P%40ssw0rd}@db:5432/${POSTGRES_DB:-tether}"
+      JWT_SECRET_KEY: "${JWT_SECRET_KEY:-whoarewewhoarewe?moscowpolykek}"
+    ports:
+      - "8002:8000"
