@@ -24,6 +24,7 @@ class entry(Base):
     fats: Mapped[Decimal | None] = mapped_column(Numeric(8, 2), nullable=True)
     proteins: Mapped[Decimal | None] = mapped_column(Numeric(8, 2), nullable=True)
     carbs: Mapped[Decimal | None] = mapped_column(Numeric(8, 2), nullable=True)
+    water: Mapped[Decimal | None] = mapped_column(Numeric(8, 2), nullable=True, default=Decimal("0"))
     product_type: Mapped[str | None] = mapped_column(String(32), nullable=True)
     base_product_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     user_product_id: Mapped[int | None] = mapped_column(Integer, nullable=True)

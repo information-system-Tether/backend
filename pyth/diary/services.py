@@ -12,6 +12,12 @@ from diary.schemas import (
     healresp, healupd, prodcreate, produpd, sheetcreate, sheetresp,
     syncdata, syncresp, parsedate)
 
+def safe_parsedate(dt: str | date, allow_future: bool = True) -> date:
+    try:
+        return parsedate(dt, allow_future=allow_future)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
 class healserv:
     @staticmethod
     def applytargets(h: bio, custom_steps: bool = False) -> None:
@@ -142,6 +148,8 @@ class prodserv:
         p = db.scalar(select(userprod).where(userprod.id == idp, userprod.user_id == idu))
         if p is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Продукт не найден")
+        for f in list(db.scalars(select(fav).where(fav.user_id == idu, fav.user_product_id == idp))):
+            db.delete(f)
         db.delete(p)
         db.commit()
 
@@ -190,7 +198,7 @@ class diaryserv:
 
     @classmethod
     def getsheet(cls, db: Session, idu: int, dt: str) -> sheetresp:
-        parsed = parsedate(dt)
+        parsed = safe_parsedate(dt)
         s = db.scalar(select(diarylist).where(diarylist.user_id == idu, diarylist.sheet_date == parsed).options(selectinload(diarylist.entries)))
         if not s:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Лист дневника за указанную дату не найден")
@@ -208,7 +216,7 @@ class diaryserv:
 
     @classmethod
     def updatesheet(cls, db: Session, idu: int, dt: str, w: Decimal | None) -> sheetresp:
-        parsed = parsedate(dt)
+        parsed = safe_parsedate(dt)
         s = db.scalar(select(diarylist).where(diarylist.user_id == idu, diarylist.sheet_date == parsed).options(selectinload(diarylist.entries)))
         if not s:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Лист не найден")
@@ -218,9 +226,18 @@ class diaryserv:
         db.refresh(s)
         return cls.to_resp(s, s.entries)
 
+    @classmethod
+    def delsheet(cls, db: Session, idu: int, dt: str) -> None:
+        parsed = safe_parsedate(dt)
+        s = db.scalar(select(diarylist).where(diarylist.user_id == idu, diarylist.sheet_date == parsed))
+        if not s:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Лист дневника за указанную дату не найден")
+        db.delete(s)
+        db.commit()
+
     @staticmethod
     def createentry(db: Session, idu: int, dt: str, data: entrycreate) -> entry:
-        parsed = parsedate(dt)
+        parsed = safe_parsedate(dt)
         s = db.scalar(select(diarylist).where(diarylist.user_id == idu, diarylist.sheet_date == parsed))
         if not s:
             s = diarylist(user_id=idu, sheet_date=parsed)
@@ -230,22 +247,47 @@ class diaryserv:
 
         if data.base_product_id is not None or data.user_product_id is not None:
             p = prodserv.getprod(db, idu, data.base_product_id, data.user_product_id)
+            grams = data.quantity_grams or Decimal("100")
             nutr = calcportion(
-                grams=data.quantity_grams or Decimal("100"),
+                grams=grams,
                 cals100=p.calories, prots100=p.proteins,
                 fats100=p.fats, carbs100=p.carbs)
+            ptype = p.product_type
+            wtr = rounddec(grams / Decimal("1000")) if ptype == "beverages" else Decimal("0")
             e = entry(
                 sheet_id=s.id, base_product_id=data.base_product_id, user_product_id=data.user_product_id,
-                quantity_grams=data.quantity_grams, title=data.title or p.name, description=data.description or p.description,
+                quantity_grams=grams, title=data.title or p.name, description=data.description or p.description,
                 calories=nutr["calories"], proteins=nutr["proteins"], fats=nutr["fats"], carbs=nutr["carbs"],
-                product_type=p.product_type)
+                water=wtr,
+                product_type=ptype)
         else:
+            ptype = data.product_type.value if hasattr(data.product_type, "value") else (data.product_type or "other")
+            grams = data.quantity_grams
+            if grams is not None:
+                nutr = calcportion(
+                    grams=grams,
+                    cals100=data.calories,
+                    prots100=data.proteins or Decimal("0"),
+                    fats100=data.fats or Decimal("0"),
+                    carbs100=data.carbs or Decimal("0"))
+                cals = nutr["calories"]
+                prots = nutr["proteins"]
+                fats = nutr["fats"]
+                carbs = nutr["carbs"]
+                wtr = rounddec(grams / Decimal("1000")) if ptype == "beverages" else Decimal("0")
+            else:
+                cals = data.calories
+                prots = data.proteins or Decimal("0")
+                fats = data.fats or Decimal("0")
+                carbs = data.carbs or Decimal("0")
+                wtr = Decimal("0")
+
             e = entry(
                 sheet_id=s.id, base_product_id=None, user_product_id=None,
-                title=data.title or "Перекус", description=data.description, quantity_grams=data.quantity_grams,
-                calories=data.calories, proteins=data.proteins or Decimal("0"), fats=data.fats or Decimal("0"),
-                carbs=data.carbs or Decimal("0"),
-                product_type=data.product_type.value if hasattr(data.product_type, "value") else data.product_type)
+                title=data.title or "Перекус", description=data.description, quantity_grams=grams,
+                calories=cals, proteins=prots, fats=fats, carbs=carbs,
+                water=wtr,
+                product_type=ptype)
         db.add(e)
         db.commit()
         db.refresh(e)
@@ -268,14 +310,36 @@ class diaryserv:
             e.proteins = nutr["proteins"]
             e.fats = nutr["fats"]
             e.carbs = nutr["carbs"]
+            e.water = rounddec(e.quantity_grams / Decimal("1000")) if e.product_type == "beverages" else Decimal("0")
+        elif not is_prod and data.quantity_grams is not None and e.quantity_grams and e.quantity_grams > 0:
+            ratio = data.quantity_grams / e.quantity_grams
+            if data.calories is None and e.calories is not None:
+                e.calories = rounddec(e.calories * ratio)
+            if data.proteins is None and e.proteins is not None:
+                e.proteins = rounddec(e.proteins * ratio)
+            if data.fats is None and e.fats is not None:
+                e.fats = rounddec(e.fats * ratio)
+            if data.carbs is None and e.carbs is not None:
+                e.carbs = rounddec(e.carbs * ratio)
+            e.quantity_grams = data.quantity_grams
+            e.water = rounddec(e.quantity_grams / Decimal("1000")) if e.product_type == "beverages" else Decimal("0")
 
         for k, v in data.model_dump(exclude_unset=True).items():
-            if k == "quantity_grams" and is_prod:
+            if k == "quantity_grams" and (is_prod or (e.quantity_grams and e.quantity_grams > 0)):
                 continue
             if k == "product_type" and v is not None:
-                setattr(e, k, v.value if hasattr(v, "value") else v)
+                val = v.value if hasattr(v, "value") else v
+                setattr(e, k, val)
+                if val == "beverages" and e.quantity_grams:
+                    e.water = rounddec(e.quantity_grams / Decimal("1000"))
+                elif val != "beverages":
+                    e.water = Decimal("0")
             else:
                 setattr(e, k, v)
+
+        if e.product_type == "beverages" and e.quantity_grams and (e.water is None or e.water == 0):
+            e.water = rounddec(e.quantity_grams / Decimal("1000"))
+
         db.commit()
         db.refresh(e)
         return e
@@ -320,6 +384,8 @@ class diaryserv:
 
         cnt = len(days)
         div = Decimal(cnt) if cnt > 0 else Decimal("1")
+        weights = [s.weight for s in sheets if s.weight is not None]
+        avg_weight = rounddec(sum(weights) / Decimal(len(weights))) if weights else None
         return dynresp(
             start_date=start_dt, end_date=end_dt, days_count=cnt,
             average_calories=rounddec(cals / div),
@@ -327,6 +393,7 @@ class diaryserv:
             average_fats=rounddec(fats / div),
             average_carbs=rounddec(carbs / div),
             average_water=rounddec(water / div),
+            average_weight=avg_weight,
             target_calories=rounddec(tc) if tc else None,
             days=days)
 

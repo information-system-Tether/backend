@@ -42,7 +42,7 @@ class authserv:
             idu = int(claims["sub"])
             jti = claims.get("jti")
         except (jwt.InvalidTokenError, KeyError, TypeError, ValueError):
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Недействительный или истекший токен")
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Недействительный или истёкший токен")
 
         if jti:
             rev = db.scalar(select(badtok).where(badtok.jti == jti))

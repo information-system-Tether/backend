@@ -18,6 +18,8 @@ def getdb() -> Generator[Session, None, None]:
 
 def addcols() -> None:
     with engine.begin() as conn:
-        for col in ("product_type VARCHAR(32)", "base_product_id INTEGER", "user_product_id INTEGER", "quantity_grams NUMERIC(8, 2)", "weight NUMERIC(6, 2)"):
+        for col in ("product_type VARCHAR(32)", "base_product_id INTEGER", "user_product_id INTEGER", "quantity_grams NUMERIC(8, 2)", "weight NUMERIC(6, 2)", "water NUMERIC(8, 2)"):
             conn.execute(text(f"ALTER TABLE entries ADD COLUMN IF NOT EXISTS {col}"))
+        conn.execute(text("UPDATE entries SET water = ROUND(quantity_grams / 1000.0, 2) WHERE product_type = 'beverages' AND quantity_grams IS NOT NULL AND (water IS NULL OR water = 0)"))
+        conn.execute(text("UPDATE entries SET water = 0 WHERE water IS NULL"))
 

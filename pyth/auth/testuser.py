@@ -9,7 +9,7 @@ def mktestuser():
         u = db.scalar(select(usr).where(usr.login == "tester"))
         if not u:
             print("Создание пользователя для теста...")
-            u = usr(login="tester", email="test@test", password_hash=hashpass("tester"))
+            u = usr(login="tester", email="tester@tester.test", password_hash=hashpass("tester"))
             db.add(u)
             db.commit()
             db.refresh(u)

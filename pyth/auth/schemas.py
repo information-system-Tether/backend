@@ -29,7 +29,7 @@ class loginreq(BaseModel):
 class useresp(BaseModel):
     id: int
     login: str
-    email: EmailStr
+    email: str
     model_config = ConfigDict(from_attributes=True)
 
 class tokenresp(BaseModel):

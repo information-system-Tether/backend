@@ -157,31 +157,33 @@ def calcdata(w: Decimal = None, h: Decimal = None, age: int = None, sex: str = "
         "target_steps": tsteps}
 
 def calcportion(grams: Decimal = None, cals100: Decimal = None, prots100: Decimal = None, fats100: Decimal = None, carbs100: Decimal = None, **kw) -> dict[str, Decimal]:
-    g = kw.get("quantity_grams", grams)
-    c = kw.get("calories_per_100g", cals100)
-    p = kw.get("proteins_per_100g", prots100)
-    f = kw.get("fats_per_100g", fats100)
-    cb = kw.get("carbs_per_100g", carbs100)
-    k = g / Decimal("100")
+    g = kw.get("quantity_grams", grams) or Decimal("100")
+    c = kw.get("calories_per_100g", cals100) or Decimal("0")
+    p = kw.get("proteins_per_100g", prots100) or Decimal("0")
+    f = kw.get("fats_per_100g", fats100) or Decimal("0")
+    cb = kw.get("carbs_per_100g", carbs100) or Decimal("0")
+    k = Decimal(str(g)) / Decimal("100")
     return {
-        "calories": rounddec(c * k),
-        "proteins": rounddec(p * k),
-        "fats": rounddec(f * k),
-        "carbs": rounddec(cb * k)}
+        "calories": rounddec(Decimal(str(c)) * k),
+        "proteins": rounddec(Decimal(str(p)) * k),
+        "fats": rounddec(Decimal(str(f)) * k),
+        "carbs": rounddec(Decimal(str(cb)) * k)}
 
 def calctotals(rows: list[Any] = None, **kw) -> dict[str, Decimal]:
     entries = kw.get("entries", rows) or []
     cals, prots, fats, carbs, water = Decimal("0"), Decimal("0"), Decimal("0"), Decimal("0"), Decimal("0")
     for r in entries:
-        if r.calories:
+        if getattr(r, "calories", None):
             cals += r.calories
-        if r.proteins:
+        if getattr(r, "proteins", None):
             prots += r.proteins
-        if r.fats:
+        if getattr(r, "fats", None):
             fats += r.fats
-        if r.carbs:
+        if getattr(r, "carbs", None):
             carbs += r.carbs
-        if getattr(r, "product_type", None) == "beverages" and r.quantity_grams:
+        if getattr(r, "water", None) is not None:
+            water += r.water
+        elif getattr(r, "product_type", None) == "beverages" and getattr(r, "quantity_grams", None):
             water += r.quantity_grams / Decimal("1000")
     return {
         "total_calories": rounddec(cals),
