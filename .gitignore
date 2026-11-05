@@ -5,7 +5,8 @@ __pycache__/
 docs/
 .vscode/
 sec/
-tests/
 unittest.py
 adm/
 .html
+*.db
+tether.db

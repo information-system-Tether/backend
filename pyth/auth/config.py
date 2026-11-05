@@ -3,7 +3,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Config(BaseSettings):
     database_url: str = "postgresql+psycopg://tether:P%40ssw0rd@db:5432/tether"
-    jwt_secret_key: str = "whoarewewhoarewe?moscowpolykek"
+    jwt_secret_key: str = "whoarewewhoarewe?moscowpolykek_2026_production_secret_key"
     jwt_algorithm: str = "HS256"
     jwt_access_token_expire_minutes: int = 60
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")

@@ -8,6 +8,8 @@ from sqlalchemy.orm import Session, selectinload
 from diary.calculation import calcportion, calctotals, calcdata, rounddec
 from diary.models import baseprod, bio, diarylist, entry, fav, userprod
 from diary.schemas import (
+    WeeklyDayStat, WeeklyStatsResponse, SummaryStatsResponse,
+    RecommendationItem, RecommendationsResponse,
     daydyn, dynresp, entrycreate, entryupd, favcreate, healcreate,
     healresp, healupd, prodcreate, produpd, sheetcreate, sheetresp,
     syncdata, syncresp, parsedate)
@@ -21,6 +23,8 @@ def safe_parsedate(dt: str | date, allow_future: bool = True) -> date:
 class healserv:
     @staticmethod
     def applytargets(h: bio, custom_steps: bool = False) -> None:
+        if h.weight is None or h.height is None or h.age is None or h.gender is None:
+            return
         targets = calcdata(w=h.weight, h=h.height, age=h.age, sex=h.gender, actlvl=h.activity_level, tgoal=h.target_goal)
         for k, v in targets.items():
             if k == "target_steps" and custom_steps and h.target_steps and h.target_steps > 0:
@@ -253,7 +257,12 @@ class diaryserv:
                 cals100=p.calories, prots100=p.proteins,
                 fats100=p.fats, carbs100=p.carbs)
             ptype = p.product_type
-            wtr = rounddec(grams / Decimal("1000")) if ptype == "beverages" else Decimal("0")
+            if getattr(data, "water", None) is not None:
+                wtr = data.water
+            elif ptype == "beverages" and grams is not None:
+                wtr = rounddec(grams / Decimal("1000"))
+            else:
+                wtr = Decimal("0")
             e = entry(
                 sheet_id=s.id, base_product_id=data.base_product_id, user_product_id=data.user_product_id,
                 quantity_grams=grams, title=data.title or p.name, description=data.description or p.description,
@@ -274,13 +283,18 @@ class diaryserv:
                 prots = nutr["proteins"]
                 fats = nutr["fats"]
                 carbs = nutr["carbs"]
-                wtr = rounddec(grams / Decimal("1000")) if ptype == "beverages" else Decimal("0")
+                if getattr(data, "water", None) is not None:
+                    wtr = data.water
+                elif ptype == "beverages" and grams is not None:
+                    wtr = rounddec(grams / Decimal("1000"))
+                else:
+                    wtr = Decimal("0")
             else:
                 cals = data.calories
                 prots = data.proteins or Decimal("0")
                 fats = data.fats or Decimal("0")
                 carbs = data.carbs or Decimal("0")
-                wtr = Decimal("0")
+                wtr = data.water if getattr(data, "water", None) is not None else Decimal("0")
 
             e = entry(
                 sheet_id=s.id, base_product_id=None, user_product_id=None,
@@ -418,4 +432,402 @@ class diaryserv:
                 for k, v in hd.items():
                     setattr(b, k, v)
                 healserv.applytargets(b, custom_steps=("target_steps" in hd))
+
+        if data.products:
+            for p in data.products:
+                exists = db.scalar(select(userprod).where(userprod.user_id == idu, userprod.name == p.name))
+                if not exists:
+                    try:
+                        prodserv.createpr(db, idu, p)
+                    except Exception:
+                        pass
+
+        if data.sheets:
+            for s in data.sheets:
+                parsed_dt = s.sheet_date
+                sheet = db.scalar(select(diarylist).where(diarylist.user_id == idu, diarylist.sheet_date == parsed_dt))
+                if not sheet:
+                    sheet = diarylist(user_id=idu, sheet_date=parsed_dt, weight=s.weight)
+                    db.add(sheet)
+                elif s.weight is not None:
+                    sheet.weight = s.weight
+            db.commit()
+
+        if data.entries:
+            for e in data.entries:
+                entry_dt = getattr(e, "entry_date", None)
+                if not entry_dt:
+                    entry_dt = date.today()
+                entry_dt_str = entry_dt.isoformat() if hasattr(entry_dt, "isoformat") else str(entry_dt)
+                try:
+                    cls.createentry(db, idu, entry_dt_str, e)
+                except Exception:
+                    pass
+
         db.commit()
+
+    @classmethod
+    def _calc_stats_data(cls, db: Session, idu: int, start_dt: date, end_dt: date, period_days: int):
+        b = db.scalar(select(bio).where(bio.user_id == idu))
+        sheets_list = list(
+            db.scalars(
+                select(diarylist)
+                .where(diarylist.user_id == idu, diarylist.sheet_date >= start_dt, diarylist.sheet_date <= end_dt)
+                .options(selectinload(diarylist.entries))
+                .order_by(diarylist.sheet_date.asc())
+            )
+        )
+        sheet_map = {s.sheet_date: s for s in sheets_list}
+
+        days: list[WeeklyDayStat] = []
+        cur_dt = start_dt
+        while cur_dt <= end_dt:
+            s = sheet_map.get(cur_dt)
+            if s and s.entries:
+                totals = calctotals(s.entries)
+                cals = totals["total_calories"]
+                prots = totals["total_proteins"]
+                fats = totals["total_fats"]
+                carbs = totals["total_carbs"]
+                water = totals["total_water"]
+                cnt = len(s.entries)
+                w = s.weight
+            elif s:
+                cals, prots, fats, carbs, water = Decimal("0"), Decimal("0"), Decimal("0"), Decimal("0"), Decimal("0")
+                cnt = 0
+                w = s.weight
+            else:
+                cals, prots, fats, carbs, water = Decimal("0"), Decimal("0"), Decimal("0"), Decimal("0"), Decimal("0")
+                cnt = 0
+                w = None
+
+            water_met = bool(b and b.target_water and b.target_water > 0 and water >= b.target_water)
+            cal_met = bool(
+                b and b.min_target_calories and b.max_target_calories and cnt > 0 and
+                (b.min_target_calories <= cals <= b.max_target_calories)
+            )
+
+            days.append(
+                WeeklyDayStat(
+                    sheet_date=cur_dt,
+                    calories=cals,
+                    proteins=prots,
+                    fats=fats,
+                    carbs=carbs,
+                    water=water,
+                    weight=w,
+                    entries_count=cnt,
+                    water_goal_met=water_met,
+                    calorie_goal_met=cal_met,
+                )
+            )
+            cur_dt += timedelta(days=1)
+
+        days_recorded = sum(1 for d in days if d.entries_count > 0)
+        div = Decimal(days_recorded) if days_recorded > 0 else Decimal("1")
+        total_cals = sum(d.calories for d in days)
+        total_prots = sum(d.proteins for d in days)
+        total_fats = sum(d.fats for d in days)
+        total_carbs = sum(d.carbs for d in days)
+        total_water = sum(d.water for d in days)
+
+        avg_cals = rounddec(total_cals / div) if days_recorded > 0 else Decimal("0")
+        avg_prots = rounddec(total_prots / div) if days_recorded > 0 else Decimal("0")
+        avg_fats = rounddec(total_fats / div) if days_recorded > 0 else Decimal("0")
+        avg_carbs = rounddec(total_carbs / div) if days_recorded > 0 else Decimal("0")
+        avg_water = rounddec(total_water / div) if days_recorded > 0 else Decimal("0")
+
+        water_goal_days = sum(1 for d in days if d.water_goal_met)
+        cal_goal_days = sum(1 for d in days if d.calorie_goal_met)
+        water_rate = round((water_goal_days / period_days) * 100.0, 1) if period_days > 0 else 0.0
+        cal_rate = round((cal_goal_days / (days_recorded if days_recorded > 0 else period_days)) * 100.0, 1) if period_days > 0 else 0.0
+
+        tc = ((b.min_target_calories + b.max_target_calories) / Decimal("2")) if (b and b.max_target_calories) else None
+
+        return {
+            "b": b,
+            "days": days,
+            "days_recorded": days_recorded,
+            "avg_cals": avg_cals,
+            "avg_prots": avg_prots,
+            "avg_fats": avg_fats,
+            "avg_carbs": avg_carbs,
+            "avg_water": avg_water,
+            "tc": tc,
+            "water_goal_days": water_goal_days,
+            "water_rate": water_rate,
+            "cal_rate": cal_rate,
+        }
+
+    @classmethod
+    def get_weekly_stats(cls, db: Session, idu: int) -> WeeklyStatsResponse:
+        today = date.today()
+        start_dt = today - timedelta(days=6)
+        data = cls._calc_stats_data(db, idu, start_dt, today, period_days=7)
+        b = data["b"]
+        return WeeklyStatsResponse(
+            start_date=start_dt,
+            end_date=today,
+            days_recorded=data["days_recorded"],
+            average_calories=data["avg_cals"],
+            average_proteins=data["avg_prots"],
+            average_fats=data["avg_fats"],
+            average_carbs=data["avg_carbs"],
+            average_water=data["avg_water"],
+            target_calories=rounddec(data["tc"]) if data["tc"] else None,
+            target_proteins=b.target_proteins if b else None,
+            target_fats=b.target_fats if b else None,
+            target_carbs=b.target_carbs if b else None,
+            target_water=b.target_water if b else None,
+            target_steps=b.target_steps if b else None,
+            water_goal_days_completed=data["water_goal_days"],
+            water_completion_rate=data["water_rate"],
+            calorie_adherence_rate=data["cal_rate"],
+            days=data["days"],
+        )
+
+    @classmethod
+    def get_summary_stats(cls, db: Session, idu: int, period_days: int = 7) -> SummaryStatsResponse:
+        p = max(1, min(period_days, 365))
+        today = date.today()
+        start_dt = today - timedelta(days=p - 1)
+        data = cls._calc_stats_data(db, idu, start_dt, today, period_days=p)
+        b = data["b"]
+        days = data["days"]
+        weights = [d.weight for d in days if d.weight is not None]
+        start_w = weights[0] if weights else None
+        curr_w = weights[-1] if weights else None
+        w_diff = rounddec(curr_w - start_w) if (start_w is not None and curr_w is not None) else None
+        total_entries = sum(d.entries_count for d in days)
+
+        return SummaryStatsResponse(
+            period_days=p,
+            start_date=start_dt,
+            end_date=today,
+            days_recorded=data["days_recorded"],
+            total_entries_count=total_entries,
+            average_calories=data["avg_cals"],
+            average_proteins=data["avg_prots"],
+            average_fats=data["avg_fats"],
+            average_carbs=data["avg_carbs"],
+            average_water=data["avg_water"],
+            current_weight=curr_w,
+            start_weight=start_w,
+            weight_diff=w_diff,
+            target_calories=rounddec(data["tc"]) if data["tc"] else None,
+            target_proteins=b.target_proteins if b else None,
+            target_fats=b.target_fats if b else None,
+            target_carbs=b.target_carbs if b else None,
+            target_water=b.target_water if b else None,
+            target_steps=b.target_steps if b else None,
+            water_completion_rate=data["water_rate"],
+            calorie_adherence_rate=data["cal_rate"],
+            days=days,
+        )
+
+    @classmethod
+    def get_recommendations(cls, db: Session, idu: int, dt: date | None = None) -> RecommendationsResponse:
+        target_date = dt or date.today()
+        b = db.scalar(select(bio).where(bio.user_id == idu))
+        sheet = db.scalar(
+            select(diarylist)
+            .where(diarylist.user_id == idu, diarylist.sheet_date == target_date)
+            .options(selectinload(diarylist.entries))
+        )
+        entries = sheet.entries if sheet else []
+        totals = calctotals(entries)
+        cals = totals["total_calories"]
+        prots = totals["total_proteins"]
+        fats = totals["total_fats"]
+        carbs = totals["total_carbs"]
+        water = totals["total_water"]
+
+        recs: list[RecommendationItem] = []
+
+        if not b:
+            recs.append(
+                RecommendationItem(
+                    category="general",
+                    title="Заполните профиль здоровья",
+                    short_summary="Укажите пол, возраст, рост, вес и цель для индивидуального расчета КБЖУ.",
+                    detailed_explanation="Без параметров тела приложение использует усредненные значения. Заполнение профиля позволит сформировать точные рекомендации по калориям, белкам, воде и активности.",
+                    tag="Профиль",
+                    priority="high"
+                )
+            )
+            recs.append(
+                RecommendationItem(
+                    category="hydration",
+                    title="Базовый водный режим",
+                    short_summary="Выпивайте не менее 1.5–2.0 л чистой воды в день.",
+                    detailed_explanation="Адекватная гидратация поддерживает нормальный объем циркулирующей крови, водно-электролитный баланс и когнитивные функции.",
+                    tag="Вода",
+                    priority="medium"
+                )
+            )
+            recs.append(
+                RecommendationItem(
+                    category="nutrition",
+                    title="Регулярный учет питания",
+                    short_summary="Фиксируйте все приемы пищи и напитки в дневнике Tether.",
+                    detailed_explanation="Осознанное ведение дневника помогает выявить скрытые калории и скорректировать пищевые привычки без жестких диет.",
+                    tag="Питание",
+                    priority="medium"
+                )
+            )
+            return RecommendationsResponse(
+                date=target_date,
+                recommendations=recs,
+                calories_consumed=cals,
+                calories_target=None,
+                water_consumed=water,
+                water_target=None
+            )
+
+        target_cals = (b.min_target_calories + b.max_target_calories) / Decimal("2")
+
+        # 1. Hydration recommendation
+        if b.target_water and b.target_water > 0:
+            if water < b.target_water * Decimal("0.5"):
+                rem_water = rounddec(b.target_water - water)
+                recs.append(
+                    RecommendationItem(
+                        category="hydration",
+                        title="Низкий уровень гидратации",
+                        short_summary=f"Выпито {water} л из нормы {b.target_water} л (осталось {rem_water} л).",
+                        detailed_explanation="Потеря жидкости снижает выносливость и ухудшает фильтрацию почек. Держите стакан или бутылку воды в поле зрения и пейте небольшими порциями.",
+                        tag="Вода",
+                        priority="high"
+                    )
+                )
+            elif water < b.target_water:
+                rem_water = rounddec(b.target_water - water)
+                recs.append(
+                    RecommendationItem(
+                        category="hydration",
+                        title="Поддерживайте питьевой режим",
+                        short_summary=f"Осталось добрать {rem_water} л воды до суточного оптимума.",
+                        detailed_explanation="Регулярное дробное питье между приемами пищи способствует легкому пищеварению и предотвращает ложное чувство голода.",
+                        tag="Вода",
+                        priority="medium"
+                    )
+                )
+            else:
+                recs.append(
+                    RecommendationItem(
+                        category="hydration",
+                        title="Суточная норма воды выполнена",
+                        short_summary=f"Выпито {water} л (цель {b.target_water} л достигнута).",
+                        detailed_explanation="Отличный баланс жидкости. Это снижает вязкость крови и ускоряет выведение продуктов метаболизма после физических нагрузок.",
+                        tag="Вода",
+                        priority="low"
+                    )
+                )
+
+        # 2. Calories recommendation
+        if len(entries) == 0:
+            recs.append(
+                RecommendationItem(
+                    category="nutrition",
+                    title="Начните вести дневник сегодня",
+                    short_summary=f"Целевая норма: {int(target_cals)} ккал ({int(b.min_target_calories)}–{int(b.max_target_calories)} ккал).",
+                    detailed_explanation="Внесите первый прием пищи. Утренний учет задает структуру рациона на весь оставшийся день.",
+                    tag="Старт дня",
+                    priority="medium"
+                )
+            )
+        else:
+            if cals > b.max_target_calories + Decimal("100"):
+                diff = int(cals - b.max_target_calories)
+                recs.append(
+                    RecommendationItem(
+                        category="nutrition",
+                        title=f"Калораж превышен на {diff} ккал",
+                        short_summary=f"Потреблено {int(cals)} ккал при верхней границе {int(b.max_target_calories)} ккал.",
+                        detailed_explanation="Чтобы компенсировать избыток калорий без стресса, добавьте 30–45 минут умеренной ходьбы или сделайте вечерний прием пищи максимально легким (белок и овощи).",
+                        tag="Баланс калорий",
+                        priority="high"
+                    )
+                )
+            elif cals < b.min_target_calories - Decimal("400"):
+                deficit = int(b.min_target_calories - cals)
+                recs.append(
+                    RecommendationItem(
+                        category="nutrition",
+                        title=f"Существенный дефицит калорий (не хватает {deficit} ккал)",
+                        short_summary=f"Набрано {int(cals)} ккал из минимально необходимых {int(b.min_target_calories)} ккал.",
+                        detailed_explanation="Слишком резкий дефицит замедляет метаболизм и приводит к мышечному катаболизму. Добавьте питательный перекус: орехи, творог, яйца или цельнозерновой хлеб.",
+                        tag="Дефицит",
+                        priority="medium"
+                    )
+                )
+            else:
+                recs.append(
+                    RecommendationItem(
+                        category="nutrition",
+                        title="Калораж в целевом диапазоне",
+                        short_summary=f"Потреблено {int(cals)} ккал в интервале {int(b.min_target_calories)}–{int(b.max_target_calories)} ккал.",
+                        detailed_explanation="Идеальный баланс потребления для достижения вашей цели. Продолжайте в том же духе!",
+                        tag="Баланс калорий",
+                        priority="low"
+                    )
+                )
+
+        # 3. Protein recommendation
+        if b.target_proteins and b.target_proteins > 0:
+            if len(entries) > 0 and prots < b.target_proteins * Decimal("0.6"):
+                recs.append(
+                    RecommendationItem(
+                        category="nutrition",
+                        title=f"Недостаток белка ({int(prots)} г из {int(b.target_proteins)} г)",
+                        short_summary="Белок критически важен для восстановления мышц и чувства насыщения.",
+                        detailed_explanation="Оптимальная норма 1.6–2.2 г/кг массы тела защищает сухую мышечную массу. Добавьте в следующий прием пищи курицу, рыбу, яйца, творог, тофу или протеин.",
+                        tag="Белок",
+                        priority="high"
+                    )
+                )
+            elif len(entries) > 0:
+                recs.append(
+                    RecommendationItem(
+                        category="nutrition",
+                        title="Белковый профиль стабилен",
+                        short_summary=f"Набрано {int(prots)} г белка из целевых {int(b.target_proteins)} г.",
+                        detailed_explanation="Организм обеспечен достаточным количеством аминокислот для синтеза мышечного протеина.",
+                        tag="Белок",
+                        priority="low"
+                    )
+                )
+
+        # 4. Activity & Workout recommendation
+        steps_target = b.target_steps if b.target_steps else 10000
+        recs.append(
+            RecommendationItem(
+                category="workout",
+                title="Внетренировочная активность и тренировки",
+                short_summary=f"Целевой ориентир: {steps_target} шагов. Соблюдайте прогрессивную перегрузку.",
+                detailed_explanation="Повседневная активность (NEAT) сжигает больше калорий, чем изолированные тренировки. В силовом тренинге стремитесь каждую неделю добавлять 1 повторение или рабочий вес.",
+                tag="Тренировки",
+                priority="medium"
+            )
+        )
+
+        # 5. Recovery & Sleep recommendation
+        recs.append(
+            RecommendationItem(
+                category="recovery",
+                title="Сон и восстановление ЦНС",
+                short_summary="7–9 часов сна каждую ночь для полноценного анаболизма.",
+                detailed_explanation="Во время медленного сна вырабатывается пик гормона роста и происходит регенерация мышечных волокон. Старайтесь избегать экранов за 30 минут до отхода ко сну.",
+                tag="Восстановление",
+                priority="low"
+            )
+        )
+
+        return RecommendationsResponse(
+            date=target_date,
+            recommendations=recs,
+            calories_consumed=cals,
+            calories_target=rounddec(target_cals),
+            water_consumed=water,
+            water_target=b.target_water
+        )

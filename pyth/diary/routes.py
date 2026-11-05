@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 from diary.database import getdb
 from diary.models import baseprod, fav, userprod
 from diary.schemas import (
+    WeeklyStatsResponse, SummaryStatsResponse, RecommendationsResponse,
     daydyn, dynresp, entrycreate, entryresp, entryupd, favcreate, favresp,
     healcreate, healresp, healupd, prodcreate, prodresp, produpd,
     sheetcreate, sheetresp, sheetupd, syncdata, syncresp)
@@ -558,3 +559,48 @@ def syncuser(
     diaryserv.syncuser(db, idu, data)
     return {"status": "synchronized"}
 
+
+@router.get(
+    "/stats/weekly",
+    tags=["Аналитика"],
+    response_model=WeeklyStatsResponse,
+    summary="Еженедельная аналитика калоража, БЖУ и выполнения нормы воды",
+    description="Возвращает статистику за последние 7 дней: средний калораж, макронутриенты, процент выполнения нормы воды и детали по дням."
+)
+@router.get("/diary/stats/weekly", tags=["Аналитика"], response_model=WeeklyStatsResponse, include_in_schema=False)
+def get_weekly_stats(idu: int = Depends(getactualuid), db: Session = Depends(getdb)) -> WeeklyStatsResponse:
+    return diaryserv.get_weekly_stats(db, idu)
+
+@router.get(
+    "/stats/summary",
+    tags=["Аналитика"],
+    response_model=SummaryStatsResponse,
+    summary="Сводная статистика за выбранный период",
+    description="Возвращает агрегированные показатели калоража, БЖУ, динамику веса и процент соблюдения норм."
+)
+@router.get("/diary/stats/summary", tags=["Аналитика"], response_model=SummaryStatsResponse, include_in_schema=False)
+def get_summary_stats(
+    period_days: Annotated[int, Query(description="Период в днях (1-365)", ge=1, le=365)] = 7,
+    idu: int = Depends(getactualuid),
+    db: Session = Depends(getdb)
+) -> SummaryStatsResponse:
+    return diaryserv.get_summary_stats(db, idu, period_days=period_days)
+
+@router.get(
+    "/advice",
+    tags=["Рекомендации"],
+    response_model=RecommendationsResponse,
+    summary="Персонализированные советы по питанию, воде и тренировкам",
+    description="Возвращает актуальные рекомендации на основе профиля здоровья и сегодняшних записей дневника."
+)
+@router.get("/diary/advice", tags=["Рекомендации"], response_model=RecommendationsResponse, include_in_schema=False)
+@router.get("/recommendations", tags=["Рекомендации"], response_model=RecommendationsResponse, include_in_schema=False)
+@router.get("/diary/recommendations", tags=["Рекомендации"], response_model=RecommendationsResponse, include_in_schema=False)
+def get_advice(
+    target_date: Annotated[str | None, Query(description="Дата для анализа (YYYY-MM-DD или 'today')")] = None,
+    idu: int = Depends(getactualuid),
+    db: Session = Depends(getdb)
+) -> RecommendationsResponse:
+    from diary.services import safe_parsedate
+    dt = safe_parsedate(target_date) if target_date else None
+    return diaryserv.get_recommendations(db, idu, dt=dt)

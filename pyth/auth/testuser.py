@@ -1,3 +1,9 @@
+import sys
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8")
+
 from sqlalchemy import select
 from auth.database import engine, SessionLocal
 from auth.models import Base, usr
@@ -20,4 +26,3 @@ def mktestuser():
 
 if __name__ == "__main__":
     mktestuser()
-

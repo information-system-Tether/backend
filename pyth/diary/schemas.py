@@ -112,6 +112,7 @@ class entrycreate(BaseModel):
     proteins: Decimal | None = Field(default=None, ge=0, description="Белки, г (для разовой записи без ID, не менее 0)")
     carbs: Decimal | None = Field(default=None, ge=0, description="Углеводы, г (для разовой записи без ID, не менее 0)")
     product_type: ProdType | None = Field(default=None, description="Категория продукта")
+    entry_date: date | None = Field(default=None, description="Дата листа дневника (YYYY-MM-DD)")
 
     @model_validator(mode="before")
     @classmethod
@@ -138,7 +139,11 @@ class entrycreate(BaseModel):
             if self.quantity_grams is not None and self.quantity_grams <= 0:
                 raise ValueError("Количество продукта в граммах должно быть строго больше 0 (не может быть равным 0 или отрицательным)")
             if self.calories is None:
-                raise ValueError("Для разовой записи (без ID) необходимо указать calories")
+                pt_val = getattr(self.product_type, "value", self.product_type)
+                if pt_val == "beverages" or self.water is not None:
+                    self.calories = Decimal("0")
+                else:
+                    raise ValueError("Для разовой записи (без ID) необходимо указать calories")
             if self.calories < 0:
                 raise ValueError("Калории не могут быть отрицательными")
             if not self.title and not self.name:
@@ -324,3 +329,79 @@ class dynresp(BaseModel):
     days: list[daydyn] = []
     model_config = ConfigDict(json_encoders={Decimal: float})
 
+
+class WeeklyDayStat(BaseModel):
+    sheet_date: date
+    calories: Decimal = Decimal("0")
+    proteins: Decimal = Decimal("0")
+    fats: Decimal = Decimal("0")
+    carbs: Decimal = Decimal("0")
+    water: Decimal = Decimal("0")
+    weight: Decimal | None = None
+    entries_count: int = 0
+    water_goal_met: bool = False
+    calorie_goal_met: bool = False
+    model_config = ConfigDict(json_encoders={Decimal: float})
+
+class WeeklyStatsResponse(BaseModel):
+    start_date: date
+    end_date: date
+    days_recorded: int
+    average_calories: Decimal
+    average_proteins: Decimal
+    average_fats: Decimal
+    average_carbs: Decimal
+    average_water: Decimal
+    target_calories: Decimal | None = None
+    target_proteins: Decimal | None = None
+    target_fats: Decimal | None = None
+    target_carbs: Decimal | None = None
+    target_water: Decimal | None = None
+    target_steps: int | None = None
+    water_goal_days_completed: int
+    water_completion_rate: float
+    calorie_adherence_rate: float
+    days: list[WeeklyDayStat] = []
+    model_config = ConfigDict(json_encoders={Decimal: float})
+
+class SummaryStatsResponse(BaseModel):
+    period_days: int
+    start_date: date
+    end_date: date
+    days_recorded: int
+    total_entries_count: int
+    average_calories: Decimal
+    average_proteins: Decimal
+    average_fats: Decimal
+    average_carbs: Decimal
+    average_water: Decimal
+    current_weight: Decimal | None = None
+    start_weight: Decimal | None = None
+    weight_diff: Decimal | None = None
+    target_calories: Decimal | None = None
+    target_proteins: Decimal | None = None
+    target_fats: Decimal | None = None
+    target_carbs: Decimal | None = None
+    target_water: Decimal | None = None
+    target_steps: int | None = None
+    water_completion_rate: float
+    calorie_adherence_rate: float
+    days: list[WeeklyDayStat] = []
+    model_config = ConfigDict(json_encoders={Decimal: float})
+
+class RecommendationItem(BaseModel):
+    category: str
+    title: str
+    short_summary: str
+    detailed_explanation: str
+    tag: str
+    priority: str = "medium"
+
+class RecommendationsResponse(BaseModel):
+    date: date
+    recommendations: list[RecommendationItem] = []
+    calories_consumed: Decimal = Decimal("0")
+    calories_target: Decimal | None = None
+    water_consumed: Decimal = Decimal("0")
+    water_target: Decimal | None = None
+    model_config = ConfigDict(json_encoders={Decimal: float})
