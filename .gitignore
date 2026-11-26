@@ -7,7 +7,7 @@ docs/
 sec/
 unittest.py
 adm/
-.html
-.pdf
+*.html
+*.pdf
 *.db
 tether.db
