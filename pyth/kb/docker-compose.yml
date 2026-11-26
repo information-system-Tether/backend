@@ -1,0 +1,13 @@
+services:
+  kb:
+    image: tether-kb:latest
+    build:
+      context: ..
+      dockerfile: kb/Dockerfile
+    container_name: tether-kb
+    restart: "no"
+    environment:
+      DATABASE_URL: "postgresql+psycopg://${POSTGRES_USER:-tether}:${POSTGRES_PASSWORD:-P%40ssw0rd}@db:5432/${POSTGRES_DB:-tether}"
+      ADMIN_API_KEY: "${ADMIN_API_KEY:-tester}"
+    ports:
+      - "8003:8000"

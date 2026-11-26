@@ -1,0 +1,1782 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Knowledge Base Service</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: #0b1120;
+      color: #e2e8f0;
+      line-height: 1.55;
+      display: flex;
+      min-height: 100vh;
+      font-weight: 400;
+    }
+
+    aside.sidebar {
+      width: 320px;
+      background-color: #0f172a;
+      border-right: 1px solid #1e293b;
+      display: flex;
+      flex-direction: column;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+      z-index: 10;
+    }
+
+    .sidebar-header {
+      padding: 20px 18px 14px;
+      border-bottom: 1px solid #1e293b;
+    }
+
+    .brand {
+      font-size: 1.05rem;
+      font-weight: 600;
+      color: #f8fafc;
+    }
+
+    .sidebar-search {
+      padding: 12px 18px;
+      border-bottom: 1px solid #1e293b;
+    }
+
+    .sidebar-search input {
+      width: 100%;
+      padding: 7px 10px;
+      background-color: #0b1120;
+      border: 1px solid #334155;
+      border-radius: 6px;
+      color: #f8fafc;
+      font-size: 0.82rem;
+      outline: none;
+    }
+
+    .sidebar-search input:focus {
+      border-color: #38bdf8;
+    }
+
+    .nav-sections {
+      padding: 14px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .nav-group-title {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #64748b;
+      padding: 0 8px 4px;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 8px;
+      border-radius: 6px;
+      color: #94a3b8;
+      text-decoration: none;
+      font-size: 0.82rem;
+    }
+
+    .nav-item:hover {
+      background-color: #1e293b;
+      color: #f8fafc;
+    }
+
+    .nav-badge {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.65rem;
+      padding: 2px 5px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      min-width: 48px;
+      text-align: center;
+    }
+
+    .badge-get { background: rgba(59, 130, 246, 0.15); color: #60a5fa; }
+    .badge-post { background: rgba(16, 185, 129, 0.15); color: #34d399; }
+    .badge-patch { background: rgba(245, 158, 11, 0.15); color: #fbbf24; }
+    .badge-delete { background: rgba(239, 68, 68, 0.15); color: #f87171; }
+
+    main.content {
+      flex: 1;
+      padding: 32px 40px;
+      max-width: 1100px;
+      overflow-y: auto;
+    }
+
+    .top-bar {
+      margin-bottom: 24px;
+      padding-bottom: 18px;
+      border-bottom: 1px solid #1e293b;
+    }
+
+    .main-title {
+      font-size: 1.8rem;
+      font-weight: 600;
+      color: #f8fafc;
+      margin-bottom: 6px;
+    }
+
+    .main-subtitle {
+      color: #94a3b8;
+      font-size: 0.92rem;
+    }
+
+    .info-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+
+    .info-card {
+      background-color: #0f172a;
+      border: 1px solid #1e293b;
+      border-radius: 8px;
+      padding: 12px 16px;
+    }
+
+    .info-card-label {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      color: #64748b;
+      margin-bottom: 4px;
+      letter-spacing: 0.04em;
+    }
+
+    .info-card-val {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.88rem;
+      color: #38bdf8;
+      word-break: break-all;
+    }
+
+    .rules-card {
+      background-color: #0f172a;
+      border: 1px solid #1e293b;
+      border-left: 3px solid #38bdf8;
+      border-radius: 6px;
+      padding: 16px 20px;
+      margin-bottom: 28px;
+      font-size: 0.88rem;
+    }
+
+    .rules-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px;
+      margin-top: 10px;
+    }
+
+    .rule-item {
+      background: #0b1120;
+      border: 1px solid #1e293b;
+      border-radius: 6px;
+      padding: 12px 14px;
+    }
+
+    .rule-title {
+      font-size: 0.82rem;
+      color: #e2e8f0;
+      margin-bottom: 8px;
+      font-weight: 600;
+    }
+
+    .rule-text {
+      color: #94a3b8;
+      font-size: 0.82rem;
+      line-height: 1.5;
+    }
+
+    .endpoint-card {
+      background-color: #0f172a;
+      border: 1px solid #1e293b;
+      border-radius: 8px;
+      margin-bottom: 28px;
+      overflow: hidden;
+      scroll-margin-top: 20px;
+    }
+
+    .endpoint-header {
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid #1e293b;
+      background-color: #131c31;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .endpoint-route {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .method-pill {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.75rem;
+      padding: 3px 8px;
+      border-radius: 5px;
+      min-width: 58px;
+      text-align: center;
+    }
+
+    .pill-get { background: #2563eb; color: #fff; }
+    .pill-post { background: #059669; color: #fff; }
+    .pill-patch { background: #d97706; color: #fff; }
+    .pill-delete { background: #dc2626; color: #fff; }
+
+    .endpoint-path {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.98rem;
+      color: #f8fafc;
+    }
+
+    .auth-badge {
+      font-size: 0.72rem;
+      padding: 3px 8px;
+      border-radius: 5px;
+      background: #1e293b;
+      color: #94a3b8;
+    }
+
+    .auth-badge.required {
+      background: rgba(245, 158, 11, 0.15);
+      color: #fbbf24;
+      border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+
+    .endpoint-body {
+      padding: 18px 20px;
+    }
+
+    .endpoint-desc {
+      font-size: 0.9rem;
+      color: #94a3b8;
+      margin-bottom: 18px;
+      line-height: 1.55;
+    }
+
+    .endpoint-desc p {
+      margin-bottom: 6px;
+    }
+
+    .section-subtitle {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #64748b;
+      margin: 18px 0 8px;
+    }
+
+    .spec-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 16px;
+      font-size: 0.85rem;
+    }
+
+    .spec-table th, .spec-table td {
+      padding: 8px 12px;
+      text-align: left;
+      border-bottom: 1px solid #1e293b;
+    }
+
+    .spec-table th {
+      color: #64748b;
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      background: #0b1120;
+    }
+
+    .spec-table td code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.8rem;
+      background: #1e293b;
+      padding: 2px 5px;
+      border-radius: 4px;
+      color: #38bdf8;
+    }
+
+    .type-badge {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.75rem;
+      color: #c084fc;
+    }
+
+    .code-container {
+      position: relative;
+      background: #0b1120;
+      border: 1px solid #1e293b;
+      border-radius: 6px;
+      margin: 10px 0 16px;
+      overflow: hidden;
+    }
+
+    .scenario-title {
+      font-size: 0.82rem;
+      color: #cbd5e1;
+      margin-top: 14px;
+      margin-bottom: 4px;
+    }
+
+    .scenario-note {
+      font-size: 0.8rem;
+      color: #94a3b8;
+      margin-bottom: 6px;
+    }
+
+    .copy-btn {
+      position: absolute;
+      top: 8px;
+      right: 10px;
+      background: #1e293b;
+      border: 1px solid #334155;
+      color: #94a3b8;
+      font-size: 0.72rem;
+      padding: 3px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .copy-btn:hover {
+      background: #334155;
+      color: #f8fafc;
+    }
+
+    pre.code-block {
+      padding: 14px 16px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.82rem;
+      line-height: 1.5;
+      color: #e2e8f0;
+      overflow-x: auto;
+    }
+
+    .status-group {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .status-row {
+      border: 1px solid #1e293b;
+      border-radius: 6px;
+      overflow: hidden;
+      background: #0b1120;
+    }
+
+    .status-row-header {
+      padding: 8px 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.84rem;
+      background: #131c31;
+    }
+
+    .status-code-badge {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.75rem;
+      padding: 2px 6px;
+      border-radius: 4px;
+      min-width: 58px;
+      text-align: center;
+    }
+
+    .sc-2xx { background: rgba(16, 185, 129, 0.15); color: #34d399; }
+    .sc-4xx { background: rgba(245, 158, 11, 0.15); color: #fbbf24; }
+
+    .status-title {
+      flex: 1;
+      color: #e2e8f0;
+    }
+
+    .status-body {
+      padding: 10px 14px;
+      border-top: 1px solid #1e293b;
+    }
+
+    .print-doc-btn {
+      background: #1e293b;
+      border: 1px solid #334155;
+      color: #f8fafc;
+      padding: 8px 14px;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.15s, border-color 0.15s;
+    }
+
+    .print-doc-btn:hover {
+      background: #334155;
+      border-color: #475569;
+    }
+
+    @media print {
+      @page {
+        margin: 12mm;
+        size: auto;
+      }
+
+      body {
+        display: block !important;
+        width: 100% !important;
+        min-height: auto !important;
+        background-color: #ffffff !important;
+        color: #0f172a !important;
+        font-size: 10pt !important;
+        line-height: 1.45 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+
+      aside.sidebar,
+      .sidebar,
+      .sidebar-header,
+      .sidebar-search,
+      .nav-sections,
+      .copy-btn,
+      .print-doc-btn {
+        display: none !important;
+      }
+
+      main.content {
+        display: block !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        overflow: visible !important;
+      }
+
+      .top-bar {
+        margin-bottom: 16px !important;
+        padding-bottom: 12px !important;
+        border-bottom: 2px solid #cbd5e1 !important;
+      }
+
+      .main-title {
+        color: #0f172a !important;
+        font-size: 18pt !important;
+      }
+
+      .main-subtitle {
+        color: #475569 !important;
+        font-size: 10pt !important;
+      }
+
+      .info-grid {
+        display: grid !important;
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 10px !important;
+        margin-bottom: 16px !important;
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }
+
+      .info-card {
+        background-color: #f8fafc !important;
+        border: 1px solid #cbd5e1 !important;
+        color: #0f172a !important;
+        padding: 8px 12px !important;
+      }
+
+      .info-card-label {
+        color: #64748b !important;
+        font-size: 8pt !important;
+      }
+
+      .info-card-val {
+        color: #0f172a !important;
+        font-size: 9pt !important;
+      }
+
+      .rules-card {
+        background-color: #f8fafc !important;
+        border: 1px solid #cbd5e1 !important;
+        color: #0f172a !important;
+        padding: 12px 14px !important;
+        margin-bottom: 20px !important;
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }
+
+      .rules-card p {
+        color: #0f172a !important;
+      }
+
+      .rules-grid {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr !important;
+        gap: 10px !important;
+      }
+
+      .rule-item {
+        background-color: #ffffff !important;
+        border: 1px solid #e2e8f0 !important;
+        padding: 8px 10px !important;
+      }
+
+      .rule-title {
+        color: #0284c7 !important;
+        font-size: 9pt !important;
+      }
+
+      .rule-text {
+        color: #334155 !important;
+        font-size: 8.5pt !important;
+      }
+
+      .endpoint-card {
+        background-color: #ffffff !important;
+        border: 1px solid #cbd5e1 !important;
+        border-radius: 6px !important;
+        margin-bottom: 18px !important;
+        overflow: visible !important;
+        break-inside: auto !important;
+        page-break-inside: auto !important;
+        box-shadow: none !important;
+      }
+
+      .endpoint-header {
+        background-color: #f1f5f9 !important;
+        border-bottom: 1px solid #cbd5e1 !important;
+        padding: 8px 12px !important;
+        break-after: avoid !important;
+        page-break-after: avoid !important;
+      }
+
+      .endpoint-path {
+        color: #0f172a !important;
+        font-size: 11pt !important;
+      }
+
+      .endpoint-body {
+        padding: 12px !important;
+        overflow: visible !important;
+      }
+
+      .endpoint-desc {
+        color: #334155 !important;
+        font-size: 9.5pt !important;
+        margin-bottom: 12px !important;
+      }
+
+      .endpoint-desc p {
+        color: #334155 !important;
+      }
+
+      .section-subtitle {
+        color: #475569 !important;
+        border-bottom: 1px solid #e2e8f0 !important;
+        font-size: 9pt !important;
+        margin: 12px 0 8px !important;
+      }
+
+      .scenario-note {
+        color: #475569 !important;
+        font-size: 8.5pt !important;
+      }
+
+      .code-container {
+        margin-top: 6px !important;
+        margin-bottom: 8px !important;
+        overflow: visible !important;
+        max-height: none !important;
+        height: auto !important;
+      }
+
+      pre.code-block {
+        background-color: #f8fafc !important;
+        border: 1px solid #cbd5e1 !important;
+        color: #0f172a !important;
+        font-size: 8pt !important;
+        line-height: 1.4 !important;
+        padding: 8px 10px !important;
+        white-space: pre-wrap !important;
+        word-break: break-all !important;
+        overflow: visible !important;
+        overflow-x: visible !important;
+        overflow-y: visible !important;
+        max-height: none !important;
+        height: auto !important;
+        border-radius: 4px !important;
+        break-inside: auto !important;
+        page-break-inside: auto !important;
+      }
+
+      .spec-table {
+        width: 100% !important;
+        border-collapse: collapse !important;
+        margin: 8px 0 !important;
+        font-size: 8.5pt !important;
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }
+
+      .spec-table th {
+        background-color: #f1f5f9 !important;
+        color: #334155 !important;
+        border: 1px solid #cbd5e1 !important;
+        padding: 6px 8px !important;
+      }
+
+      .spec-table td {
+        border: 1px solid #cbd5e1 !important;
+        color: #0f172a !important;
+        padding: 6px 8px !important;
+      }
+
+      .spec-table code {
+        background-color: #e2e8f0 !important;
+        color: #0f172a !important;
+      }
+
+      .method-pill {
+        font-size: 8pt !important;
+        padding: 2px 6px !important;
+      }
+
+      .pill-get { background: #dbeafe !important; color: #1d4ed8 !important; }
+      .pill-post { background: #d1fae5 !important; color: #047857 !important; }
+      .pill-patch { background: #fef3c7 !important; color: #b45309 !important; }
+      .pill-delete { background: #fee2e2 !important; color: #b91c1c !important; }
+
+      .status-row {
+        border: 1px solid #cbd5e1 !important;
+        border-radius: 6px !important;
+        margin-bottom: 8px !important;
+        overflow: visible !important;
+        break-inside: auto !important;
+        page-break-inside: auto !important;
+        background-color: #ffffff !important;
+      }
+
+      .status-row-header {
+        background-color: #f8fafc !important;
+        border-bottom: 1px solid #e2e8f0 !important;
+        padding: 6px 10px !important;
+        break-after: avoid !important;
+        page-break-after: avoid !important;
+      }
+
+      .status-title {
+        color: #0f172a !important;
+        font-size: 8.5pt !important;
+      }
+
+      .status-body {
+        padding: 8px 10px !important;
+      }
+
+      .status-code-badge {
+        font-size: 8pt !important;
+        padding: 2px 6px !important;
+      }
+
+      .sc-2xx { background: #d1fae5 !important; color: #047857 !important; }
+      .sc-4xx { background: #fee2e2 !important; color: #b91c1c !important; }
+
+      .auth-badge {
+        border: 1px solid #cbd5e1 !important;
+        color: #475569 !important;
+        font-size: 7.5pt !important;
+        padding: 2px 6px !important;
+      }
+
+      .auth-badge.required {
+        background: #e0e7ff !important;
+        color: #4338ca !important;
+        border-color: #c7d2fe !important;
+      }
+
+      .type-badge {
+        background: #e2e8f0 !important;
+        color: #334155 !important;
+        font-size: 7.5pt !important;
+        padding: 2px 5px !important;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Navigation Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div class="brand">Tether Knowledge Base API</div>
+    </div>
+    <div class="sidebar-search">
+      <input type="text" id="filterInput" placeholder="Поиск эндпоинта..." onkeyup="filterEndpoints()">
+    </div>
+    <div class="nav-sections">
+      <div>
+        <div class="nav-group-title">Система</div>
+        <a href="#ep-root" class="nav-item">
+          <span class="nav-badge badge-get">GET</span>
+          <span>/</span>
+        </a>
+        <a href="#ep-health-status" class="nav-item">
+          <span class="nav-badge badge-get">GET</span>
+          <span>/health/status</span>
+        </a>
+      </div>
+      <div>
+        <div class="nav-group-title">База знаний (чтение и поиск)</div>
+        <a href="#ep-get-blocks" class="nav-item">
+          <span class="nav-badge badge-get">GET</span>
+          <span>/kb/blocks</span>
+        </a>
+        <a href="#ep-get-articles" class="nav-item">
+          <span class="nav-badge badge-get">GET</span>
+          <span>/kb</span>
+        </a>
+        <a href="#ep-get-paginated" class="nav-item">
+          <span class="nav-badge badge-get">GET</span>
+          <span>/kb/paginated</span>
+        </a>
+        <a href="#ep-get-search" class="nav-item">
+          <span class="nav-badge badge-get">GET</span>
+          <span>/kb/search</span>
+        </a>
+        <a href="#ep-get-article-id" class="nav-item">
+          <span class="nav-badge badge-get">GET</span>
+          <span>/kb/{aid}</span>
+        </a>
+      </div>
+      <div>
+        <div class="nav-group-title">Администрирование</div>
+        <a href="#ep-post-article" class="nav-item">
+          <span class="nav-badge badge-post">POST</span>
+          <span>/kb</span>
+        </a>
+        <a href="#ep-patch-article" class="nav-item">
+          <span class="nav-badge badge-patch">PATCH</span>
+          <span>/kb/{aid}</span>
+        </a>
+        <a href="#ep-delete-article" class="nav-item">
+          <span class="nav-badge badge-delete">DELETE</span>
+          <span>/kb/{aid}</span>
+        </a>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="content">
+    <div class="top-bar">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 16px;">
+        <div>
+          <h1 class="main-title">Knowledge Base Service</h1>
+          <p class="main-subtitle">Спецификация взаимодействия микросервиса базы знаний, поиска, тематических блоков и аналитических статей.</p>
+        </div>
+        <button class="print-doc-btn" onclick="window.print()">Сохранить в PDF</button>
+      </div>
+    </div>
+
+    <!-- Quick Info Cards -->
+    <div class="info-grid">
+      <div class="info-card">
+        <div class="info-card-label">Базовый адрес API</div>
+        <div class="info-card-val">http://localhost:8003</div>
+      </div>
+      <div class="info-card">
+        <div class="info-card-label">Swagger UI документация</div>
+        <div class="info-card-val">http://localhost:8003/docs</div>
+      </div>
+      <div class="info-card">
+        <div class="info-card-label">Схема авторизации</div>
+        <div class="info-card-val">X-Admin-Key (управление) / Публичный (чтение)</div>
+      </div>
+      <div class="info-card">
+        <div class="info-card-label">Пагинация и поиск</div>
+        <div class="info-card-val">Query: page, page_size, limit, offset, block, q</div>
+      </div>
+    </div>
+
+    <!-- Business Rules Card -->
+    <div class="rules-card">
+      <p style="margin-bottom: 8px; color: #f8fafc; font-weight: 600;">Вводная информация:</p>
+      <div class="rules-grid">
+        <div class="rule-item">
+          <div class="rule-title">Тематические блоки (block)</div>
+          <div class="rule-text">
+            1. <strong>Гидратация и питьевой режим</strong> (расчёт нормы воды, электролиты, чай/кофе)<br>
+            2. <strong>Стандарты, маркировка и законы</strong> (FDA, регламенты ТР ТС, калорийность порции/100г)<br>
+            3. <strong>Нутриенты, витамины и макроэлементы</strong> (роль БЖУ, микроэлементы, дефициты)<br>
+            4. <strong>Методы взвешивания, расчёта и учёта</strong> (сырой/варёный вес, кости, уварка/ужарка)<br>
+            5. <strong>Калории, энергетический баланс и метаболизм</strong> (BMR, дефицит, профицит, алкоголь)<br>
+            6. <strong>Общие вопросы питания, физиологии и психологии</strong> (срывы, насыщение, режим дня)
+          </div>
+        </div>
+        <div class="rule-item">
+          <div class="rule-title">Категории статей (category)</div>
+          <div class="rule-text">
+            <code>general</code> — общие вопросы физиологии и пищевого поведения<br>
+            <code>calories</code> — калорийность, энергетическая ценность и BMR<br>
+            <code>nutrients</code> — макронутриенты (белки, жиры, углеводы) и микроэлементы<br>
+            <code>methods</code> — алгоритмы расчёта сложных блюд и взвешивания<br>
+            <code>standards</code> — нормативные акты, стандарты маркировки и регуляторы<br>
+            <code>hydration</code> — нормы потребления жидкости и баланс воды
+          </div>
+        </div>
+        <div class="rule-item">
+          <div class="rule-title">Полнотекстовый поиск (AND-логика)</div>
+          <div class="rule-text">
+            Поиск выполняется по всем ключевым словам: статья включается в выдачу, только если <strong>каждое</strong> переданное слово встречается хотя бы в одном из полей: вопросе (question), ответе (answer), тегах (tags) или блоке (block).<br>
+            Регистр символов игнорируется (поиск регистронезависимый).
+          </div>
+        </div>
+        <div class="rule-item">
+          <div class="rule-title">Пагинация через поля (Query Params)</div>
+          <div class="rule-text">
+            Поддерживаются параметры <code>page</code> (начиная с 1) и <code>page_size</code> (1-100, по умолчанию 20), а также альтернативные <code>limit</code> и <code>offset</code>.<br>
+            Эндпоинт <code>GET /kb</code> возвращает плоский массив, а метаданные отдаются в заголовках: <code>X-Total-Count</code>, <code>X-Page</code>, <code>X-Page-Size</code>, <code>X-Total-Pages</code>, <code>X-Has-Next</code>, <code>X-Has-Prev</code>.
+          </div>
+        </div>
+        <div class="rule-item">
+          <div class="rule-title">Формат ответов: Плоский список vs JSON-объект</div>
+          <div class="rule-text">
+            • <code>GET /kb</code> и <code>GET /kb/search</code> возвращают массив <code>[...]</code> (100% обратная совместимость с мобильным приложением).<br>
+            • <code>GET /kb/paginated</code> возвращает структурированный JSON-объект <code>{ items: [...], total, page, page_size, total_pages, has_next, has_prev }</code>, если клиенту так удобнее парсить стейт.
+          </div>
+        </div>
+        <div class="rule-item">
+          <div class="rule-title">Административный доступ (X-Admin-Key)</div>
+          <div class="rule-text">
+            Все методы модификации базы знаний (<code>POST /kb</code>, <code>PATCH /kb/{aid}</code>, <code>DELETE /kb/{aid}</code>) требуют передачи HTTP-заголовка <code>X-Admin-Key: tester</code>.<br>
+            При отсутствии заголовка возвращается <code>422 Unprocessable Entity</code>, при неверном значении ключа — <code>403 Forbidden</code>.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 0. GET / -->
+    <section class="endpoint-card" id="ep-root">
+      <div class="endpoint-header">
+        <div class="endpoint-route">
+          <span class="method-pill pill-get">GET</span>
+          <span class="endpoint-path">/</span>
+        </div>
+        <span class="auth-badge">Публичный</span>
+      </div>
+      <div class="endpoint-body">
+        <div class="endpoint-desc">
+          <p>Редирект на интерактивную документацию Swagger.</p>
+          <p>При обращении к корневому адресу сервис выполняет автоматическое перенаправление на страницу <code>/docs</code>.</p>
+        </div>
+
+        <div class="section-subtitle">Возможные HTTP-коды и ответы</div>
+        <div class="status-group">
+          <div class="status-row">
+            <div class="status-row-header">
+              <span class="status-code-badge sc-2xx">307 Temporary Redirect</span>
+              <span class="status-title">Перенаправление на /docs (заголовок Location: /docs)</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 1. GET /health/status -->
+    <section class="endpoint-card" id="ep-health-status">
+      <div class="endpoint-header">
+        <div class="endpoint-route">
+          <span class="method-pill pill-get">GET</span>
+          <span class="endpoint-path">/health/status</span>
+        </div>
+        <span class="auth-badge">Публичный</span>
+      </div>
+      <div class="endpoint-body">
+        <div class="endpoint-desc">
+          <p>Проверка работоспособности сервиса базы знаний.</p>
+          <p>Служебный эндпоинт healthcheck. Авторизация не требуется.</p>
+        </div>
+
+        <div class="section-subtitle">Возможные HTTP-коды и ответы</div>
+        <div class="status-group">
+          <div class="status-row">
+            <div class="status-row-header">
+              <span class="status-code-badge sc-2xx">200 OK</span>
+              <span class="status-title">Сервис исправен</span>
+            </div>
+            <div class="status-body">
+              <div class="code-container">
+                <button class="copy-btn" onclick="copyCode(this)">Скопировать</button>
+                <pre class="code-block">{
+  "status": "ok",
+  "service": "kb"
+}</pre>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. GET /kb/blocks -->
+    <section class="endpoint-card" id="ep-get-blocks">
+      <div class="endpoint-header">
+        <div class="endpoint-route">
+          <span class="method-pill pill-get">GET</span>
+          <span class="endpoint-path">/kb/blocks</span>
+        </div>
+        <span class="auth-badge">Публичный</span>
+      </div>
+      <div class="endpoint-body">
+        <div class="endpoint-desc">
+          <p>Получить список всех уникальных тематических блоков.</p>
+          <p>Используется мобильным приложением и веб-фронтендом для отрисовки табов, карточек направлений и навигационного меню базы знаний.</p>
+        </div>
+
+        <div class="section-subtitle">Возможные HTTP-коды и ответы</div>
+        <div class="status-group">
+          <div class="status-row">
+            <div class="status-row-header">
+              <span class="status-code-badge sc-2xx">200 OK</span>
+              <span class="status-title">Список названий тематических блоков (сортировка по алфавиту)</span>
+            </div>
+            <div class="status-body">
+              <div class="code-container">
+                <button class="copy-btn" onclick="copyCode(this)">Скопировать</button>
+                <pre class="code-block">[
+  "Гидратация и питьевой режим",
+  "Калории, энергетический баланс и метаболизм",
+  "Методы взвешивания, расчёта и учёта",
+  "Нутриенты, витамины и макроэлементы",
+  "Общие вопросы питания, физиологии и психологии",
+  "Стандарты, маркировка и законы"
+]</pre>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. GET /kb -->
+    <section class="endpoint-card" id="ep-get-articles">
+      <div class="endpoint-header">
+        <div class="endpoint-route">
+          <span class="method-pill pill-get">GET</span>
+          <span class="endpoint-path">/kb</span>
+        </div>
+        <span class="auth-badge">Публичный</span>
+      </div>
+      <div class="endpoint-body">
+        <div class="endpoint-desc">
+          <p>Получить статьи базы знаний (с фильтрацией по блоку, категории, ключевым словам и пагинацией).</p>
+          <p>Возвращает плоский массив статей. Позволяет гибко комбинировать параметры: выбрать конкретный блок вопросов, отфильтровать по категории, выполнить поиск ключевых слов и ограничить страницу выдачи.</p>
+          <p>Метаданные пагинации возвращаются в HTTP-заголовках: <code>X-Total-Count</code>, <code>X-Page</code>, <code>X-Page-Size</code>, <code>X-Total-Pages</code>, <code>X-Has-Next</code>, <code>X-Has-Prev</code>.</p>
+        </div>
+
+        <div class="section-subtitle">Параметры строки запроса (Query Params)</div>
+        <table class="spec-table">
+          <thead>
+            <tr>
+              <th>Поле</th>
+              <th>Тип</th>
+              <th>Обязательность</th>
+              <th>Описание</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>block</code></td>
+              <td><span class="type-badge">string</span></td>
+              <td>Опционально</td>
+              <td>Фильтр по точному названию блока (например, <code>Гидратация и питьевой режим</code>)</td>
+            </tr>
+            <tr>
+              <td><code>q</code></td>
+              <td><span class="type-badge">string</span></td>
+              <td>Опционально</td>
+              <td>Ключевые слова для поиска по вопросу, ответу, тегам и блоку</td>
+            </tr>
+            <tr>
+              <td><code>category</code></td>
+              <td><span class="type-badge">string</span></td>
+              <td>Опционально</td>
+              <td>Фильтр по коду категории (<code>general</code>, <code>calories</code>, <code>nutrients</code>, <code>methods</code>, <code>standards</code>, <code>hydration</code>)</td>
+            </tr>
+            <tr>
+              <td><code>page</code></td>
+              <td><span class="type-badge">integer</span></td>
+              <td>Опционально</td>
+              <td>Номер страницы (начиная с <code>1</code>). По умолчанию <code>1</code> (если указан page_size)</td>
+            </tr>
+            <tr>
+              <td><code>page_size</code></td>
+              <td><span class="type-badge">integer</span></td>
+              <td>Опционально</td>
+              <td>Количество статей на страницу (от <code>1</code> до <code>100</code>, по умолчанию <code>20</code>)</td>
+            </tr>
+            <tr>
+              <td><code>limit</code></td>
+              <td><span class="type-badge">integer</span></td>
+              <td>Опционально</td>
+              <td>Количество возвращаемых записей (альтернатива page_size, до <code>1000</code>)</td>
+            </tr>
+            <tr>
+              <td><code>offset</code></td>
+              <td><span class="type-badge">integer</span></td>
+              <td>Опционально</td>
+              <td>Смещение записей от начала (по умолчанию <code>0</code>)</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="section-subtitle">Возможные HTTP-коды и ответы</div>
+        <div class="status-group">
+          <!-- 200 -->
+          <div class="status-row">
+            <div class="status-row-header">
+              <span class="status-code-badge sc-2xx">200 OK</span>
+              <span class="status-title">Список статей базы знаний (с заголовками пагинации)</span>
+            </div>
+            <div class="status-body">
+              <div class="scenario-note">Пример заголовков ответа: <code>X-Total-Count: 113</code>, <code>X-Page: 1</code>, <code>X-Page-Size: 2</code>, <code>X-Total-Pages: 57</code>, <code>X-Has-Next: true</code>, <code>X-Has-Prev: false</code></div>
+              <div class="code-container">
+                <button class="copy-btn" onclick="copyCode(this)">Скопировать</button>
+                <pre class="code-block">[
+  {
+    "id": 1,
+    "question": "Что такое дефицит калорий и как он влияет на снижение массы тела?",
+    "answer": "Дефицит калорий – состояние, при котором организм расходует больше энергии, чем получает с пищей. В ответ на нехватку энергии организм начинает расщеплять эндогенные запасы – в первую очередь триглицериды жировой ткани и гликоген.",
+    "category": "calories",
+    "block": "Калории, энергетический баланс и метаболизм",
+    "tags": "дефицит,калории,похудение,энергобаланс,жиросжигание",
+    "created_at": "2026-11-20T03:40:00Z"
+  },
+  {
+    "id": 2,
+    "question": "В каких странах калорийность указывается для всей упаковки, а не для 100 г?",
+    "answer": "Такое распространено в США (требование FDA – указывать Nutrition Facts на порцию, размер которой определяет производитель) и в Южной Корее (стандарт MFDS). В ЕС и России КБЖУ указываются на 100 г/100 мл.",
+    "category": "standards",
+    "block": "Стандарты, маркировка и законы",
+    "tags": "калорийность,упаковка,FDA,MFDS,США,Корея,стандарт",
+    "created_at": "2026-11-20T03:40:00Z"
+  }
+]</pre>
+              </div>
+            </div>
+          </div>
+
+          <!-- 422 -->
+          <div class="status-row">
+            <div class="status-row-header">
+              <span class="status-code-badge sc-4xx">422 Unprocessable Entity</span>
+              <span class="status-title">Некорректные параметры пагинации (page &lt; 1 или page_size &gt; 100)</span>
+            </div>
+            <div class="status-body">
+              <div class="code-container">
+                <button class="copy-btn" onclick="copyCode(this)">Скопировать</button>
+                <pre class="code-block">{
+  "detail": [
+    {
+      "type": "greater_than_equal",
+      "loc": ["query", "page"],
+      "msg": "Input should be greater than or equal to 1"
+    }
+  ]
+}</pre>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4. GET /kb/paginated -->
+    <section class="endpoint-card" id="ep-get-paginated">
+      <div class="endpoint-header">
+        <div class="endpoint-route">
+          <span class="method-pill pill-get">GET</span>
+          <span class="endpoint-path">/kb/paginated</span>
+        </div>
+        <span class="auth-badge">Публичный</span>
+      </div>
+      <div class="endpoint-body">
+        <div class="endpoint-desc">
+          <p>Получить статьи базы знаний в виде структуры с пагинацией (JSON-объект).</p>
+          <p>Возвращает объект с массивом <code>items</code> и метаполями <code>total</code>, <code>page</code>, <code>page_size</code>, <code>total_pages</code>, <code>has_next</code>, <code>has_prev</code>. Удобно для веб-фронтенда и клиентов с готовым состоянием таблицы/пагинатора.</p>
+        </div>
+
+        <div class="section-subtitle">Параметры строки запроса (Query Params)</div>
+        <table class="spec-table">
+          <thead>
+            <tr>
+              <th>Поле</th>
+              <th>Тип</th>
+              <th>Обязательность</th>
+              <th>Описание</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>block</code></td>
+              <td><span class="type-badge">string</span></td>
+              <td>Опционально</td>
+              <td>Фильтр по тематическому блоку вопросов</td>
+            </tr>
+            <tr>
+              <td><code>q</code></td>
+              <td><span class="type-badge">string</span></td>
+              <td>Опционально</td>
+              <td>Поиск по ключевым словам</td>
+            </tr>
+            <tr>
+              <td><code>category</code></td>
+              <td><span class="type-badge">string</span></td>
+              <td>Опционально</td>
+              <td>Фильтр по коду категории</td>
+            </tr>
+            <tr>
+              <td><code>page</code></td>
+              <td><span class="type-badge">integer</span></td>
+              <td>Опционально (по умолч. 1)</td>
+              <td>Номер страницы (начиная с <code>1</code>)</td>
+            </tr>
+            <tr>
+              <td><code>page_size</code></td>
+              <td><span class="type-badge">integer</span></td>
+              <td>Опционально (по умолч. 20)</td>
+              <td>Количество статей на страницу (от <code>1</code> до <code>100</code>)</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="section-subtitle">Возможные HTTP-коды и ответы</div>
+        <div class="status-group">
+          <div class="status-row">
+            <div class="status-row-header">
+              <span class="status-code-badge sc-2xx">200 OK</span>
+              <span class="status-title">Структурированный JSON-объект со списком и метаданными</span>
+            </div>
+            <div class="status-body">
+              <div class="code-container">
+                <button class="copy-btn" onclick="copyCode(this)">Скопировать</button>
+                <pre class="code-block">{
+  "items": [
+    {
+      "id": 6,
+      "question": "Какова суточная физиологическая норма потребления воды для взрослого человека?",
+      "answer": "Ориентировочная норма – 30-35 мл на 1 кг массы тела в сутки при умеренной температуре и нормальной физической активности. При интенсивных тренировках или жаре потребность возрастает до 40-45 мл/кг.",
+      "category": "hydration",
+      "block": "Гидратация и питьевой режим",
+      "tags": "вода,норма,гидратация,расчёт,мл,кг",
+      "created_at": "2026-11-20T03:40:00Z"
+    }
+  ],
+  "total": 10,
+  "page": 1,
+  "page_size": 20,
+  "total_pages": 1,
+  "has_next": false,
+  "has_prev": false
+}</pre>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5. GET /kb/search -->
+    <section class="endpoint-card" id="ep-get-search">
+      <div class="endpoint-header">
+        <div class="endpoint-route">
+          <span class="method-pill pill-get">GET</span>
+          <span class="endpoint-path">/kb/search</span>
+        </div>
+        <span class="auth-badge">Публичный</span>
+      </div>
+      <div class="endpoint-body">
+        <div class="endpoint-desc">
+          <p>Полнотекстовый поиск по вопросам, ответам, тегам и блокам с поддержкой пагинации.</p>
+          <p>Поиск выполняется по всем переданным словам (логика <strong>AND</strong>): статья попадает в результат, только если каждое слово встречается хотя бы в одном из полей. Пример: <code>q=калорийность упаковка</code> найдёт статьи, содержащие оба слова.</p>
+        </div>
+
+        <div class="section-subtitle">Параметры строки запроса (Query Params)</div>
+        <table class="spec-table">
+          <thead>
+            <tr>
+              <th>Поле</th>
+              <th>Тип</th>
+              <th>Обязательность</th>
+              <th>Описание</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>q</code></td>
+              <td><span class="type-badge">string</span></td>
+              <td>Обязательно</td>
+              <td>Поисковый запрос (ключевые слова через пробел, минимум 1 символ)</td>
+            </tr>
+            <tr>
+              <td><code>block</code></td>
+              <td><span class="type-badge">string</span></td>
+              <td>Опционально</td>
+              <td>Ограничить поиск конкретным тематическим блоком</td>
+            </tr>
+            <tr>
+              <td><code>category</code></td>
+              <td><span class="type-badge">string</span></td>
+              <td>Опционально</td>
+              <td>Ограничить поиск категорией</td>
+            </tr>
+            <tr>
+              <td><code>page</code></td>
+              <td><span class="type-badge">integer</span></td>
+              <td>Опционально</td>
+              <td>Номер страницы результатов (начиная с <code>1</code>)</td>
+            </tr>
+            <tr>
+              <td><code>page_size</code></td>
+              <td><span class="type-badge">integer</span></td>
+              <td>Опционально</td>
+              <td>Количество результатов на странице (от <code>1</code> до <code>100</code>)</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="section-subtitle">Возможные HTTP-коды и ответы</div>
+        <div class="status-group">
+          <!-- 200 -->
+          <div class="status-row">
+            <div class="status-row-header">
+              <span class="status-code-badge sc-2xx">200 OK</span>
+              <span class="status-title">Найденные статьи (заголовки X-Total-Count, X-Page, X-Page-Size)</span>
+            </div>
+            <div class="status-body">
+              <div class="code-container">
+                <button class="copy-btn" onclick="copyCode(this)">Скопировать</button>
+                <pre class="code-block">[
+  {
+    "id": 2,
+    "question": "В каких странах калорийность указывается для всей упаковки, а не для 100 г?",
+    "answer": "Такое распространено в США (требование FDA – указывать Nutrition Facts на порцию, размер которой определяет производитель) и в Южной Корее (стандарт MFDS). В ЕС и России КБЖУ указываются на 100 г/100 мл.",
+    "category": "standards",
+    "block": "Стандарты, маркировка и законы",
+    "tags": "калорийность,упаковка,FDA,MFDS,США,Корея,стандарт",
+    "created_at": "2026-11-20T03:40:00Z"
+  }
+]</pre>
+              </div>
+            </div>
+          </div>
+
+          <!-- 422 -->
+          <div class="status-row">
+            <div class="status-row-header">
+              <span class="status-code-badge sc-4xx">422 Unprocessable Entity</span>
+              <span class="status-title">Пустой или отсутствующий параметр q</span>
+            </div>
+            <div class="status-body">
+              <div class="code-container">
+                <button class="copy-btn" onclick="copyCode(this)">Скопировать</button>
+                <pre class="code-block">{
+  "detail": [
+    {
+      "type": "string_too_short",
+      "loc": ["query", "q"],
+      "msg": "Длина поля должна быть не менее 1 символов"
+    }
+  ]
+}</pre>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6. GET /kb/{aid} -->
+    <section class="endpoint-card" id="ep-get-article-id">
+      <div class="endpoint-header">
+        <div class="endpoint-route">
+          <span class="method-pill pill-get">GET</span>
+          <span class="endpoint-path">/kb/{aid}</span>
+        </div>
+        <span class="auth-badge">Публичный</span>
+      </div>
+      <div class="endpoint-body">
+        <div class="endpoint-desc">
+          <p>Получить детальную информацию о статье базы знаний по её идентификатору.</p>
+        </div>
+
+        <div class="section-subtitle">Параметры пути (Path Params)</div>
+        <table class="spec-table">
+          <thead>
+            <tr>
+              <th>Поле</th>
+              <th>Тип</th>
+              <th>Обязательность</th>
+              <th>Описание</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>aid</code></td>
+              <td><span class="type-badge">integer</span></td>
+              <td>Обязательно</td>
+              <td>Уникальный числовой ID статьи базы знаний</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="section-subtitle">Возможные HTTP-коды и ответы</div>
+        <div class="status-group">
+          <!-- 200 -->
+          <div class="status-row">
+            <div class="status-row-header">
+              <span class="status-code-badge sc-2xx">200 OK</span>
+              <span class="status-title">Статья успешно найдена</span>
+            </div>
+            <div class="status-body">
+              <div class="code-container">
+                <button class="copy-btn" onclick="copyCode(this)">Скопировать</button>
+                <pre class="code-block">{
+  "id": 1,
+  "question": "Что такое дефицит калорий и как он влияет на снижение массы тела?",
+  "answer": "Дефицит калорий – состояние, при котором организм расходует больше энергии, чем получает с пищей. В ответ на нехватку энергии организм начинает расщеплять эндогенные запасы – в первую очередь триглицериды жировой ткани и гликоген.",
+  "category": "calories",
+  "block": "Калории, энергетический баланс и метаболизм",
+  "tags": "дефицит,калории,похудение,энергобаланс,жиросжигание",
+  "created_at": "2026-11-20T03:40:00Z"
+}</pre>
+              </div>
+            </div>
+          </div>
+
+          <!-- 404 -->
+          <div class="status-row">
+            <div class="status-row-header">
+              <span class="status-code-badge sc-4xx">404 Not Found</span>
+              <span class="status-title">Статья с указанным ID не существует</span>
+            </div>
+            <div class="status-body">
+              <div class="code-container">
+                <button class="copy-btn" onclick="copyCode(this)">Скопировать</button>
+                <pre class="code-block">{
+  "detail": "Статья базы знаний не найдена"
+}</pre>
+              </div>
+            </div>
+          </div>
+
+          <!-- 422 -->
+          <div class="status-row">
+            <div class="status-row-header">
+              <span class="status-code-badge sc-4xx">422 Unprocessable Entity</span>
+              <span class="status-title">Нечисловой идентификатор aid</span>
+            </div>
+            <div class="status-body">
+              <div class="code-container">
+                <button class="copy-btn" onclick="copyCode(this)">Скопировать</button>
+                <pre class="code-block">{
+  "detail": [
+    {
+      "type": "int_parsing",
+      "loc": ["path", "aid"],
+      "msg": "Input should be a valid integer, unable to parse string as an integer"
+    }
+  ]
+}</pre>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 7. POST /kb -->
+    <section class="endpoint-card" id="ep-post-article">
+      <div class="endpoint-header">
+        <div class="endpoint-route">
+          <span class="method-pill pill-post">POST</span>
+          <span class="endpoint-path">/kb</span>
+        </div>
+        <span class="auth-badge required">X-Admin-Key: tester</span>
+      </div>
+      <div class="endpoint-body">
+        <div class="endpoint-desc">
+          <p>Создание новой статьи в базе знаний.</p>
+          <p>Метод защищён административным ключом. Требуется передавать заголовок <code>X-Admin-Key</code>.</p>
+        </div>
+
+        <div class="section-subtitle">Параметры заголовков (Headers)</div>
+        <table class="spec-table">
+          <thead>
+            <tr>
+              <th>Заголовок</th>
+              <th>Тип</th>
+              <th>Обязательность</th>
+              <th>Описание</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>X-Admin-Key</code></td>
+              <td><span class="type-badge">string</span></td>
+              <td>Обязательно</td>
+              <td>Секретный ключ администратора (по умолчанию <code>tester</code>)</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="section-subtitle">Параметры тела запроса (JSON)</div>
+        <table class="spec-table">
+          <thead>
+            <tr>
+              <th>Поле</th>
+              <th>Тип</th>
+              <th>Обязательность</th>
+              <th>Требования</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>question</code></td>
+              <td><span class="type-badge">string</span></td>
+              <td>Обязательно</td>
+              <td>Длина от 3 до 1000 символов. Текст вопроса статьи</td>
+            </tr>
+            <tr>
+              <td><code>answer</code></td>
+              <td><span class="type-badge">string</span></td>
+              <td>Обязательно</td>
+              <td>Длина от 1 до 5000 символов. Развернутый экспертный ответ</td>
+            </tr>
+            <tr>
+              <td><code>category</code></td>
+              <td><span class="type-badge">string</span></td>
+              <td>Опционально (по умолч. "general")</td>
+              <td>Код категории (general, calories, nutrients, methods, standards, hydration)</td>
+            </tr>
+            <tr>
+              <td><code>block</code></td>
+              <td><span class="type-badge">string | null</span></td>
+              <td>Опционально</td>
+              <td>Название тематического блока (до 128 символов)</td>
+            </tr>
+            <tr>
+              <td><code>tags</code></td>
+              <td><span class="type-badge">string | null</span></td>
+              <td>Опционально</td>
+              <td>Ключевые слова через запятую (до 512 символов)</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="scenario-title">Пример тела запроса (создание статьи)</div>
+        <div class="code-container">
+          <button class="copy-btn" onclick="copyCode(this)">Скопировать</button>
+          <pre class="code-block">{
+  "question": "Какова калорийность чистого спирта (алкоголя)?",
+  "answer": "Чистый этиловый спирт содержит примерно 7 ккал на 1 грамм. Это больше, чем у белков и углеводов (4 ккал/г), но меньше, чем у жиров (9 ккал/г). При этом эти калории считаются «пустыми», так как спирт не содержит питательных веществ.",
+  "category": "calories",
+  "block": "Калории, энергетический баланс и метаболизм",
+  "tags": "алкоголь,спирт,калорийность,грамм,энергия"
+}</pre>
+        </div>
+
+        <div class="section-subtitle">Возможные HTTP-коды и ответы</div>
+        <div class="status-group">
+          <!-- 201 -->
+          <div class="status-row">
+            <div class="status-row-header">
+              <span class="status-code-badge sc-2xx">201 Created</span>
+              <span class="status-title">Статья успешно создана</span>
+            </div>
+            <div class="status-body">
+              <div class="code-container">
+                <button class="copy-btn" onclick="copyCode(this)">Скопировать</button>
+                <pre class="code-block">{
+  "id": 114,
+  "question": "Какова калорийность чистого спирта (алкоголя)?",
+  "answer": "Чистый этиловый спирт содержит примерно 7 ккал на 1 грамм. Это больше, чем у белков и углеводов (4 ккал/г), но меньше, чем у жиров (9 ккал/г). При этом эти калории считаются «пустыми», так как спирт не содержит питательных веществ.",
+  "category": "calories",
+  "block": "Калории, энергетический баланс и метаболизм",
+  "tags": "алкоголь,спирт,калорийность,грамм,энергия",
+  "created_at": "2026-11-26T15:00:00Z"
+}</pre>
+              </div>
+            </div>
+          </div>
+
+          <!-- 403 -->
+          <div class="status-row">
+            <div class="status-row-header">
+              <span class="status-code-badge sc-4xx">403 Forbidden</span>
+              <span class="status-title">Неверный административный ключ</span>
+            </div>
+            <div class="status-body">
+              <div class="code-container">
+                <button class="copy-btn" onclick="copyCode(this)">Скопировать</button>
+                <pre class="code-block">{
+  "detail": "Доступ запрещен: неверный административный ключ"
+}</pre>
+              </div>
+            </div>
+          </div>
+
+          <!-- 422 -->
+          <div class="status-row">
+            <div class="status-row-header">
+              <span class="status-code-badge sc-4xx">422 Unprocessable Entity</span>
+              <span class="status-title">Отсутствует обязательный заголовок X-Admin-Key или невалидные поля</span>
+            </div>
+            <div class="status-body">
+              <div class="code-container">
+                <button class="copy-btn" onclick="copyCode(this)">Скопировать</button>
+                <pre class="code-block">{
+  "detail": [
+    {
+      "type": "missing",
+      "loc": ["header", "x-admin-key"],
+      "msg": "Обязательное поле отсутствует"
+    }
+  ]
+}</pre>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 8. PATCH /kb/{aid} -->
+    <section class="endpoint-card" id="ep-patch-article">
+      <div class="endpoint-header">
+        <div class="endpoint-route">
+          <span class="method-pill pill-patch">PATCH</span>
+          <span class="endpoint-path">/kb/{aid}</span>
+        </div>
+        <span class="auth-badge required">X-Admin-Key: tester</span>
+      </div>
+      <div class="endpoint-body">
+        <div class="endpoint-desc">
+          <p>Частичное обновление статьи базы знаний.</p>
+          <p>Позволяет изменить любое из полей (вопрос, ответ, категорию, блок, теги). Поля, не переданные в запросе, сохраняют свои прежние значения.</p>
+        </div>
+
+        <div class="section-subtitle">Параметры заголовков (Headers)</div>
+        <table class="spec-table">
+          <thead>
+            <tr>
+              <th>Заголовок</th>
+              <th>Тип</th>
+              <th>Обязательность</th>
+              <th>Описание</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>X-Admin-Key</code></td>
+              <td><span class="type-badge">string</span></td>
+              <td>Обязательно</td>
+              <td>Секретный ключ администратора (<code>tester</code>)</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="scenario-title">Пример тела запроса (обновление ответа и тегов)</div>
+        <div class="code-container">
+          <button class="copy-btn" onclick="copyCode(this)">Скопировать</button>
+          <pre class="code-block">{
+  "answer": "Чистый этиловый спирт содержит 7.1 ккал на 1 грамм. При этом эти калории называют «пустыми», так как спирт не содержит витаминов или минералов.",
+  "tags": "спирт,алкоголь,пустые калории,этанол"
+}</pre>
+        </div>
+
+        <div class="section-subtitle">Возможные HTTP-коды и ответы</div>
+        <div class="status-group">
+          <!-- 200 -->
+          <div class="status-row">
+            <div class="status-row-header">
+              <span class="status-code-badge sc-2xx">200 OK</span>
+              <span class="status-title">Статья успешно обновлена</span>
+            </div>
+            <div class="status-body">
+              <div class="code-container">
+                <button class="copy-btn" onclick="copyCode(this)">Скопировать</button>
+                <pre class="code-block">{
+  "id": 114,
+  "question": "Какова калорийность чистого спирта (алкоголя)?",
+  "answer": "Чистый этиловый спирт содержит 7.1 ккал на 1 грамм. При этом эти калории называют «пустыми», так как спирт не содержит витаминов или минералов.",
+  "category": "calories",
+  "block": "Калории, энергетический баланс и метаболизм",
+  "tags": "спирт,алкоголь,пустые калории,этанол",
+  "created_at": "2026-11-26T15:00:00Z"
+}</pre>
+              </div>
+            </div>
+          </div>
+
+          <!-- 403 -->
+          <div class="status-row">
+            <div class="status-row-header">
+              <span class="status-code-badge sc-4xx">403 Forbidden</span>
+              <span class="status-title">Неверный административный ключ</span>
+            </div>
+            <div class="status-body">
+              <div class="code-container">
+                <button class="copy-btn" onclick="copyCode(this)">Скопировать</button>
+                <pre class="code-block">{
+  "detail": "Доступ запрещен: неверный административный ключ"
+}</pre>
+              </div>
+            </div>
+          </div>
+
+          <!-- 404 -->
+          <div class="status-row">
+            <div class="status-row-header">
+              <span class="status-code-badge sc-4xx">404 Not Found</span>
+              <span class="status-title">Статья с указанным aid не найдена</span>
+            </div>
+            <div class="status-body">
+              <div class="code-container">
+                <button class="copy-btn" onclick="copyCode(this)">Скопировать</button>
+                <pre class="code-block">{
+  "detail": "Статья базы знаний не найдена"
+}</pre>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 9. DELETE /kb/{aid} -->
+    <section class="endpoint-card" id="ep-delete-article">
+      <div class="endpoint-header">
+        <div class="endpoint-route">
+          <span class="method-pill pill-delete">DELETE</span>
+          <span class="endpoint-path">/kb/{aid}</span>
+        </div>
+        <span class="auth-badge required">X-Admin-Key: tester</span>
+      </div>
+      <div class="endpoint-body">
+        <div class="endpoint-desc">
+          <p>Удаление статьи из базы знаний.</p>
+          <p>Физически удаляет запись статьи из базы данных по её числовому идентификатору.</p>
+        </div>
+
+        <div class="section-subtitle">Параметры заголовков (Headers)</div>
+        <table class="spec-table">
+          <thead>
+            <tr>
+              <th>Заголовок</th>
+              <th>Тип</th>
+              <th>Обязательность</th>
+              <th>Описание</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>X-Admin-Key</code></td>
+              <td><span class="type-badge">string</span></td>
+              <td>Обязательно</td>
+              <td>Секретный ключ администратора (<code>tester</code>)</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="section-subtitle">Возможные HTTP-коды и ответы</div>
+        <div class="status-group">
+          <!-- 204 -->
+          <div class="status-row">
+            <div class="status-row-header">
+              <span class="status-code-badge sc-2xx">204 No Content</span>
+              <span class="status-title">Статья успешно удалена (тело ответа пустое)</span>
+            </div>
+          </div>
+
+          <!-- 403 -->
+          <div class="status-row">
+            <div class="status-row-header">
+              <span class="status-code-badge sc-4xx">403 Forbidden</span>
+              <span class="status-title">Неверный административный ключ</span>
+            </div>
+            <div class="status-body">
+              <div class="code-container">
+                <button class="copy-btn" onclick="copyCode(this)">Скопировать</button>
+                <pre class="code-block">{
+  "detail": "Доступ запрещен: неверный административный ключ"
+}</pre>
+              </div>
+            </div>
+          </div>
+
+          <!-- 404 -->
+          <div class="status-row">
+            <div class="status-row-header">
+              <span class="status-code-badge sc-4xx">404 Not Found</span>
+              <span class="status-title">Статья с указанным aid не найдена</span>
+            </div>
+            <div class="status-body">
+              <div class="code-container">
+                <button class="copy-btn" onclick="copyCode(this)">Скопировать</button>
+                <pre class="code-block">{
+  "detail": "Статья базы знаний не найдена"
+}</pre>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    function copyCode(btn) {
+      const parent = btn.parentElement;
+      const block = parent.querySelector('pre');
+      if (!block) return;
+      navigator.clipboard.writeText(block.innerText).then(() => {
+        const oldText = btn.innerText;
+        btn.innerText = 'Скопировано';
+        btn.style.color = '#34d399';
+        setTimeout(() => {
+          btn.innerText = oldText;
+          btn.style.color = '';
+        }, 1600);
+      });
+    }
+
+    function filterEndpoints() {
+      const query = document.getElementById('filterInput').value.toLowerCase();
+      document.querySelectorAll('.endpoint-card').forEach(card => {
+        const text = card.innerText.toLowerCase();
+        card.style.display = text.includes(query) ? '' : 'none';
+      });
+      document.querySelectorAll('.nav-item').forEach(item => {
+        const text = item.innerText.toLowerCase();
+        item.style.display = text.includes(query) ? '' : 'none';
+      });
+    }
+  </script>
+</body>
+</html>

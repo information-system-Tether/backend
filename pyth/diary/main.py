@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from diary.database import Base, SessionLocal, addcols, engine
 from diary.baseproducts import seedbase
@@ -19,6 +20,14 @@ app = FastAPI(
     version="2.2",
     description="Микросервис дневника питания, аналитики нутриентов и профиля здоровья.",
     lifespan=longlive)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origin_regex=r".*",
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):

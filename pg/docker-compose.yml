@@ -2,7 +2,7 @@ services:
   pgadmin4:
     image: dpage/pgadmin4
     container_name: pg
-    restart: always
+    restart: "no"
     environment:
       PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-adm@mail.ru}
       PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-P@ssw0rd}

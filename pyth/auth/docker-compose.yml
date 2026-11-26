@@ -1,10 +1,11 @@
 services:
   auth:
+    image: tether-auth:latest
     build:
       context: ..
       dockerfile: auth/Dockerfile
     container_name: tether-auth
-    restart: always
+    restart: "no"
     environment:
       DATABASE_URL: "postgresql+psycopg://${POSTGRES_USER:-tether}:${POSTGRES_PASSWORD:-P%40ssw0rd}@db:5432/${POSTGRES_DB:-tether}"
       JWT_SECRET_KEY: "${JWT_SECRET_KEY:-whoarewewhoarewe?moscowpolykek}"

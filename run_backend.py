@@ -37,15 +37,23 @@ try:
 except Exception as e:
     print("Diary init warning:", e)
 
+# 3. Инициализируем базу знаний и готовый пул вопросов
+try:
+    init_kb = [sys.executable, os.path.join(pyth_dir, "kb", "init_db.py")]
+    subprocess.run(init_kb, env=env, check=True)
+except Exception as e:
+    print("KB init warning:", e)
+
 if "--init-only" in sys.argv or "--check" in sys.argv:
     print("\nBackend initialization verified successfully.")
     sys.exit(0)
 
 print("\n" + "=" * 60)
 print("Tether Backend running on:")
-print("  - Auth Service  : http://localhost:8001  (Docs: http://localhost:8001/docs)")
-print("  - Diary Service : http://localhost:8002  (Docs: http://localhost:8002/docs)")
-print("  - Test User     : login 'tester', password 'tester'")
+print("  - Auth Service       : http://localhost:8001  (Docs: http://localhost:8001/docs)")
+print("  - Diary Service      : http://localhost:8002  (Docs: http://localhost:8002/docs)")
+print("  - Knowledge Base (KB): http://localhost:8003  (Docs: http://localhost:8003/docs)")
+print("  - Test User          : login 'tester', password 'tester'")
 print("=" * 60 + "\n")
 
 auth_proc = subprocess.Popen(
@@ -60,14 +68,21 @@ diary_proc = subprocess.Popen(
     cwd=pyth_dir
 )
 
+kb_proc = subprocess.Popen(
+    [sys.executable, "-m", "uvicorn", "kb.main:app", "--host", "0.0.0.0", "--port", "8003"],
+    env=env,
+    cwd=pyth_dir
+)
+
 try:
     while True:
         time.sleep(1)
-        if auth_proc.poll() is not None or diary_proc.poll() is not None:
+        if auth_proc.poll() is not None or diary_proc.poll() is not None or kb_proc.poll() is not None:
             break
 except KeyboardInterrupt:
     print("\nStopping services...")
 finally:
     auth_proc.terminate()
     diary_proc.terminate()
+    kb_proc.terminate()
     print("Services stopped.")

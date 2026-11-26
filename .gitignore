@@ -8,5 +8,6 @@ sec/
 unittest.py
 adm/
 .html
+.pdf
 *.db
 tether.db

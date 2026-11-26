@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from auth.database import Base, engine
 from auth.routes import router
@@ -15,6 +16,14 @@ app = FastAPI(
     version="2.2",
     description="Регистрация, вход, выход (отзыв токена) и проверка профиля пользователя.",
     lifespan=longlive)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origin_regex=r".*",
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
