@@ -18,10 +18,8 @@ env["PYTHONIOENCODING"] = "utf-8"
 env["DATABASE_URL"] = database_url
 env["PYTHONPATH"] = pyth_dir
 
-print("=" * 60)
-print("Initializing Tether Backend (SQLite)...")
-print("Database URL:", database_url)
-print("=" * 60)
+print("Бэкенд-сервер включается...")
+print("БД (SQLite):", database_url)
 
 # 1. Создаем тестового пользователя и базовые таблицы авторизации
 try:
@@ -48,13 +46,11 @@ if "--init-only" in sys.argv or "--check" in sys.argv:
     print("\nBackend initialization verified successfully.")
     sys.exit(0)
 
-print("\n" + "=" * 60)
-print("Tether Backend running on:")
+print("\nБэкенд ВКЛ:")
 print("  - Auth Service       : http://localhost:8001  (Docs: http://localhost:8001/docs)")
 print("  - Diary Service      : http://localhost:8002  (Docs: http://localhost:8002/docs)")
 print("  - Knowledge Base (KB): http://localhost:8003  (Docs: http://localhost:8003/docs)")
-print("  - Test User          : login 'tester', password 'tester'")
-print("=" * 60 + "\n")
+print("  - Test User          : login 'tester', password 'tester'\n")
 
 auth_proc = subprocess.Popen(
     [sys.executable, "-m", "uvicorn", "auth.main:app", "--host", "0.0.0.0", "--port", "8001"],
